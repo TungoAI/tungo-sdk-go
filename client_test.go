@@ -56,7 +56,7 @@ type conformanceVectors struct {
 
 func loadVectors(t *testing.T) conformanceVectors {
 	t.Helper()
-	raw, err := os.ReadFile("../tungo-sdkgen/conformance/vectors.json")
+	raw, err := os.ReadFile("conformance/vectors.json")
 	if err != nil {
 		t.Fatalf("read vectors.json: %v", err)
 	}
