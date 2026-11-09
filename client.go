@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DefaultBaseURL    = "https://api.tungo.ai"
+	DefaultBaseURL    = "https://api.tungo.kz"
 	DefaultTimeout    = 30 * time.Second
 	DefaultMaxRetries = 2
 	SDKVersion        = "0.1.0"
@@ -35,6 +35,48 @@ type RateLimitInfo struct {
 	Limit     int
 	Remaining int
 	Reset     int64
+}
+
+// RawResponse содержит сырые метаданные HTTP-ответа (статус, заголовки, x-request-id, RateLimitInfo, время).
+type RawResponse struct {
+	StatusCode int
+	Headers    http.Header
+	RequestID  string
+	RateLimit  *RateLimitInfo
+	Elapsed    time.Duration
+	RawBody    []byte
+}
+
+// RequestInfo передаётся в колбэк WithOnRequest (секретные заголовки редактируются в [REDACTED]).
+type RequestInfo struct {
+	Method  string
+	URL     string
+	Headers map[string]string
+	Attempt int
+}
+
+// ResponseInfo передаётся в колбэк WithOnResponse.
+type ResponseInfo struct {
+	Method     string
+	URL        string
+	StatusCode int
+	RequestID  string
+	Elapsed    time.Duration
+	Attempt    int
+}
+
+// RedactHeaders возвращает копию заголовков с замаскированными секретами ([REDACTED]).
+func RedactHeaders(h http.Header) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, vals := range h {
+		low := strings.ToLower(k)
+		if low == "authorization" || low == "x-api-key" || low == "x-signature" || low == "webhook-signature" || low == "svix-signature" || low == "cookie" || low == "set-cookie" {
+			out[k] = "[REDACTED]"
+		} else {
+			out[k] = strings.Join(vals, ", ")
+		}
+	}
+	return out
 }
 
 // APIError — типизированная ошибка Tungo Platform API.
@@ -54,24 +96,27 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("tungo api error (%d %s): %s", e.Status, e.Code, e.Message)
 }
 
-func IsValidationError(err error) bool      { var e *APIError; return errors.As(err, &e) && e.Status == 400 }
+func IsValidationError(err error) bool      { var e *APIError; return errors.As(err, &e) && (e.Status == 400 || e.Status == 422) }
 func IsAuthError(err error) bool            { var e *APIError; return errors.As(err, &e) && e.Status == 401 }
 func IsPaymentRequiredError(err error) bool { var e *APIError; return errors.As(err, &e) && e.Status == 402 }
 func IsPermissionError(err error) bool      { var e *APIError; return errors.As(err, &e) && e.Status == 403 }
-func IsNotFoundError(err error) bool        { var e *APIError; return errors.As(err, &e) && e.Status == 404 }
+func IsNotFoundError(err error) bool        { var e *APIError; return errors.As(err, &e) && (e.Status == 404 || e.Status == 410) }
 func IsConflictError(err error) bool        { var e *APIError; return errors.As(err, &e) && e.Status == 409 }
 func IsRateLimitError(err error) bool       { var e *APIError; return errors.As(err, &e) && e.Status == 429 }
 
 // Option настраивает Client.
 type Option func(*Client)
 
-func WithAPIKey(key string) Option          { return func(c *Client) { c.apiKey = key } }
-func WithBaseURL(u string) Option           { return func(c *Client) { c.baseURL = strings.TrimRight(u, "/") } }
-func WithWorkspaceID(ws string) Option      { return func(c *Client) { c.workspaceID = ws } }
-func WithCompanyID(co string) Option        { return func(c *Client) { c.companyID = co } }
-func WithWebhookSecret(sec string) Option   { return func(c *Client) { c.webhookSecret = sec } }
-func WithMaxRetries(n int) Option           { return func(c *Client) { c.maxRetries = n } }
-func WithHTTPClient(hc *http.Client) Option { return func(c *Client) { c.httpClient = hc } }
+func WithAPIKey(key string) Option                 { return func(c *Client) { c.apiKey = key } }
+func WithBaseURL(u string) Option                  { return func(c *Client) { c.baseURL = strings.TrimRight(u, "/") } }
+func WithWorkspaceID(ws string) Option             { return func(c *Client) { c.workspaceID = ws } }
+func WithCompanyID(co string) Option               { return func(c *Client) { c.companyID = co } }
+func WithWebhookSecret(sec string) Option          { return func(c *Client) { c.webhookSecret = sec } }
+func WithMaxRetries(n int) Option                  { return func(c *Client) { c.maxRetries = n } }
+func WithHTTPClient(hc *http.Client) Option        { return func(c *Client) { c.httpClient = hc } }
+func WithDebug(debug bool) Option                  { return func(c *Client) { c.debug = debug } }
+func WithOnRequest(fn func(RequestInfo)) Option    { return func(c *Client) { c.onRequest = fn } }
+func WithOnResponse(fn func(ResponseInfo)) Option  { return func(c *Client) { c.onResponse = fn } }
 func WithTimeout(d time.Duration) Option {
 	return func(c *Client) {
 		c.timeout = d
@@ -90,6 +135,9 @@ type Client struct {
 	webhookSecret string
 	timeout       time.Duration
 	maxRetries    int
+	debug         bool
+	onRequest     func(RequestInfo)
+	onResponse    func(ResponseInfo)
 	httpClient    *http.Client
 
 	mu            sync.RWMutex
@@ -194,19 +242,47 @@ type requestSpec struct {
 }
 
 func (c *Client) doJSON(ctx context.Context, spec requestSpec, out any) error {
+	_, err := c.doJSONWithRaw(ctx, spec, out)
+	return err
+}
+
+func (c *Client) doJSONWithRaw(ctx context.Context, spec requestSpec, out any) (*RawResponse, error) {
+	start := time.Now()
 	resp, err := c.doRaw(ctx, spec, "application/json")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	rawResp := &RawResponse{
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
+		RequestID:  resp.Header.Get("x-request-id"),
+		RateLimit:  c.LastRateLimit(),
+		Elapsed:    time.Since(start),
+		RawBody:    raw,
 	}
 	if out == nil || len(bytes.TrimSpace(raw)) == 0 {
-		return nil
+		return rawResp, nil
 	}
-	return json.Unmarshal(raw, out)
+	if err := json.Unmarshal(raw, out); err != nil {
+		return rawResp, err
+	}
+	return rawResp, nil
+}
+
+// DoRawJSON выполняет низкоуровневый JSON-запрос и возвращает как распарсенный ответ, так и RawResponse (заголовки, x-request-id, RateLimit).
+func (c *Client) DoRawJSON(ctx context.Context, method, path string, body any, out any) (*RawResponse, error) {
+	return c.doJSONWithRaw(ctx, requestSpec{
+		Method:    method,
+		Path:      path,
+		Body:      body,
+		Auth:      "key",
+		RetrySafe: method == "GET" || method == "HEAD",
+	}, out)
 }
 
 func (c *Client) doSSE(ctx context.Context, spec requestSpec) (iter.Seq2[SSEEvent, error], error) {
@@ -288,6 +364,19 @@ func (c *Client) doRaw(ctx context.Context, spec requestSpec, accept string) (*h
 			req.Header.Set(k, v)
 		}
 
+		start := time.Now()
+		if c.debug {
+			fmt.Fprintf(os.Stderr, "[tungo-sdk] -> %s %s (attempt %d) %v\n", spec.Method, fullURL, attempt+1, RedactHeaders(req.Header))
+		}
+		if c.onRequest != nil {
+			c.onRequest(RequestInfo{
+				Method:  spec.Method,
+				URL:     fullURL,
+				Headers: RedactHeaders(req.Header),
+				Attempt: attempt,
+			})
+		}
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt+1 < maxAttempts && ctx.Err() == nil {
@@ -298,6 +387,19 @@ func (c *Client) doRaw(ctx context.Context, spec requestSpec, accept string) (*h
 		}
 
 		c.captureRateLimit(resp.Header)
+		if c.debug {
+			fmt.Fprintf(os.Stderr, "[tungo-sdk] <- %d %s %s (%v)\n", resp.StatusCode, spec.Method, fullURL, time.Since(start))
+		}
+		if c.onResponse != nil {
+			c.onResponse(ResponseInfo{
+				Method:     spec.Method,
+				URL:        fullURL,
+				StatusCode: resp.StatusCode,
+				RequestID:  resp.Header.Get("x-request-id"),
+				Elapsed:    time.Since(start),
+				Attempt:    attempt,
+			})
+		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp, nil

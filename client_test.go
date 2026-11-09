@@ -32,16 +32,22 @@ type conformanceVectors struct {
 		Tiyn      int64   `json:"tiyn"`
 		Formatted string  `json:"formatted"`
 	} `json:"money"`
+	BinIin []struct {
+		Value string `json:"value"`
+		Valid bool   `json:"valid"`
+	} `json:"bin_iin"`
 	Errors []struct {
 		Status    int    `json:"status"`
 		Body      string `json:"body"`
 		ErrorType string `json:"error_type"`
 		ErrorCode string `json:"error_code"`
+		Hint      string `json:"hint"`
 		RequestID string `json:"request_id"`
 	} `json:"errors"`
 	SSE struct {
-		RawStream string `json:"raw_stream"`
-		Events    []struct {
+		RawStream    string `json:"raw_stream"`
+		ExpectedText string `json:"expected_text"`
+		Events       []struct {
 			Event string `json:"event"`
 			Data  string `json:"data"`
 		} `json:"events"`
@@ -81,16 +87,19 @@ func TestConformanceVectors(t *testing.T) {
 		t.Fatal("expected error on tampered webhook payload")
 	}
 
-	// 2. Incoming Hook HMAC-SHA256
+	// 2. Incoming Hook HMAC-SHA256 (with and without prefix)
 	sig := SignHookPayload(v.IncomingHook.Body, v.IncomingHook.Secret)
 	if sig != v.IncomingHook.PrefixedSignature {
 		t.Fatalf("SignHookPayload = %q, want %q", sig, v.IncomingHook.PrefixedSignature)
 	}
 	if !VerifyHookSignature(v.IncomingHook.Body, sig, v.IncomingHook.Secret) {
-		t.Fatal("VerifyHookSignature returned false")
+		t.Fatal("VerifyHookSignature returned false for prefixed signature")
+	}
+	if !VerifyHookSignature(v.IncomingHook.Body, v.IncomingHook.HexSignature, v.IncomingHook.Secret) {
+		t.Fatal("VerifyHookSignature returned false for raw hex signature")
 	}
 
-	// 3. Money (Tiyn <-> Tenge + FormatTiyn)
+	// 3. Money (Tiyn <-> Tenge + FormatTiyn) & Kazakhstan BIN/IIN
 	for _, mc := range v.Money {
 		if got := ToTiyn(mc.Tenge); got != mc.Tiyn {
 			t.Fatalf("ToTiyn(%v) = %d, want %d", mc.Tenge, got, mc.Tiyn)
@@ -102,11 +111,16 @@ func TestConformanceVectors(t *testing.T) {
 			t.Fatalf("FormatTiyn(%d) = %q, want %q", mc.Tiyn, got, mc.Formatted)
 		}
 	}
+	for _, bc := range v.BinIin {
+		if got := IsValidBinIin(bc.Value); got != bc.Valid {
+			t.Fatalf("IsValidBinIin(%q) = %v, want %v", bc.Value, got, bc.Valid)
+		}
+	}
 
-	// 4. Structured API Errors
+	// 4. Structured API Errors + Hint
 	for _, ec := range v.Errors {
 		apiErr := ParseAPIError(ec.Status, []byte(ec.Body), nil)
-		if apiErr.Code != ec.ErrorCode || apiErr.RequestID != ec.RequestID {
+		if apiErr.Code != ec.ErrorCode || apiErr.RequestID != ec.RequestID || apiErr.Hint != ec.Hint {
 			t.Fatalf("ParseAPIError(%d) = %+v", ec.Status, apiErr)
 		}
 		if ec.Status == 429 && !IsRateLimitError(apiErr) {
@@ -117,21 +131,22 @@ func TestConformanceVectors(t *testing.T) {
 		}
 	}
 
-	// 5. SSE Stream Parser
-	var events []SSEEvent
-	for ev, err := range ParseSSE(strings.NewReader(v.SSE.RawStream)) {
-		if err != nil {
-			t.Fatalf("ParseSSE error: %v", err)
-		}
-		events = append(events, ev)
+	// 5. SSE Stream Parser & AccumulateChatStream
+	var deltas []string
+	acc, err := AccumulateChatStream(ParseSSE(strings.NewReader(v.SSE.RawStream)), func(d string) {
+		deltas = append(deltas, d)
+	})
+	if err != nil {
+		t.Fatalf("AccumulateChatStream error: %v", err)
 	}
-	if len(events) != len(v.SSE.Events) {
-		t.Fatalf("got %d SSE events, want %d", len(events), len(v.SSE.Events))
+	if len(acc.Events) != len(v.SSE.Events) {
+		t.Fatalf("got %d SSE events, want %d", len(acc.Events), len(v.SSE.Events))
 	}
-	for i, exp := range v.SSE.Events {
-		if events[i].Event != exp.Event {
-			t.Fatalf("event[%d] = %q, want %q", i, events[i].Event, exp.Event)
-		}
+	if acc.Text != v.SSE.ExpectedText || strings.Join(deltas, "") != v.SSE.ExpectedText {
+		t.Fatalf("acc.Text = %q, want %q", acc.Text, v.SSE.ExpectedText)
+	}
+	if acc.DialogID != "dlg_01" || acc.CostTiyn != 185 {
+		t.Fatalf("unexpected acc metadata: %+v", acc)
 	}
 }
 

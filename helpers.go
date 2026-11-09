@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"math"
 	"strconv"
 	"strings"
@@ -187,10 +188,133 @@ func SignHookPayload(rawBody, secret string) string {
 	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-// VerifyHookSignature проверяет подпись входящего хука (sha256=<hex>).
+// VerifyHookSignature проверяет подпись входящего хука (поддерживает как sha256=<hex>, так и <hex>).
 func VerifyHookSignature(rawBody, signature, secret string) bool {
-	expected := SignHookPayload(rawBody, secret)
-	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(signature)))
+	trimmed := strings.TrimSpace(signature)
+	if trimmed == "" || secret == "" {
+		return false
+	}
+	hexSig := strings.TrimPrefix(trimmed, "sha256=")
+	expected := strings.TrimPrefix(SignHookPayload(rawBody, secret), "sha256=")
+	return hmac.Equal([]byte(strings.ToLower(hexSig)), []byte(strings.ToLower(expected)))
+}
+
+// IsValidBinIin проверяет контрольную сумму 12-значного БИН или ИИН Республики Казахстан (модуль 11, два прохода).
+func IsValidBinIin(value string) bool {
+	if len(value) != 12 {
+		return false
+	}
+	var digits [12]int
+	for i := 0; i < 12; i++ {
+		ch := value[i]
+		if ch < '0' || ch > '9' {
+			return false
+		}
+		digits[i] = int(ch - '0')
+	}
+	w1 := [11]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+	sum1 := 0
+	for i := 0; i < 11; i++ {
+		sum1 += digits[i] * w1[i]
+	}
+	control := sum1 % 11
+	if control == 10 {
+		w2 := [11]int{3, 4, 5, 6, 7, 8, 9, 10, 11, 1, 2}
+		sum2 := 0
+		for i := 0; i < 11; i++ {
+			sum2 += digits[i] * w2[i]
+		}
+		control = sum2 % 11
+	}
+	return control < 10 && control == digits[11]
+}
+
+// ChatStreamAccumulated — собранный результат потокового хода чата ИИ-бухгалтера (SSE).
+type ChatStreamAccumulated struct {
+	Text       string
+	DialogID   string
+	TurnNo     int64
+	StopReason string
+	CostTiyn   int64
+	Events     []SSEEvent
+}
+
+// AccumulateChatStream собирает поток событий SSE в единый ответ ChatStreamAccumulated, вызывая onTextDelta на каждый фрагмент текста.
+func AccumulateChatStream(seq iter.Seq2[SSEEvent, error], onTextDelta func(delta string)) (*ChatStreamAccumulated, error) {
+	acc := &ChatStreamAccumulated{}
+	for ev, err := range seq {
+		if err != nil {
+			return acc, err
+		}
+		acc.Events = append(acc.Events, ev)
+		m, _ := ev.Data.(map[string]any)
+		switch ev.Event {
+		case "meta":
+			if d, ok := m["dialog_id"].(string); ok {
+				acc.DialogID = d
+			}
+		case "text", "delta", "message":
+			var delta string
+			if m != nil {
+				if d, ok := m["delta"].(string); ok {
+					delta = d
+				} else if t, ok := m["text"].(string); ok {
+					delta = t
+				}
+			} else if s, ok := ev.Data.(string); ok {
+				delta = s
+			}
+			if delta != "" {
+				acc.Text += delta
+				if onTextDelta != nil {
+					onTextDelta(delta)
+				}
+			}
+		case "done":
+			if m != nil {
+				if d, ok := m["dialog_id"].(string); ok {
+					acc.DialogID = d
+				}
+				if sr, ok := m["stop_reason"].(string); ok {
+					acc.StopReason = sr
+				}
+				if ct, ok := m["cost_tiyn"].(float64); ok {
+					acc.CostTiyn = int64(ct)
+				}
+				if acc.Text == "" {
+					if ans, ok := m["answer"].(string); ok {
+						acc.Text = ans
+					}
+				}
+			}
+		}
+	}
+	return acc, nil
+}
+
+// UploadBankStatementInput — параметры загрузки банковской выписки на разбор.
+type UploadBankStatementInput struct {
+	CompanyID   string
+	FileName    string
+	Content     []byte
+	IsPlainText bool
+	Limit       *int64
+}
+
+// UploadBankStatement загружает банковскую выписку (1CClientBankExchange .txt или файл из банка) на разбор в пачку предложений.
+func (c *Client) UploadBankStatement(ctx context.Context, in UploadBankStatementInput) (*BatchJob, error) {
+	req := &BankStatementJobRequest{
+		FileName: &in.FileName,
+		Limit:    in.Limit,
+	}
+	if in.IsPlainText {
+		txt := string(in.Content)
+		req.Text = &txt
+	} else {
+		b64 := base64.StdEncoding.EncodeToString(in.Content)
+		req.File = &b64
+	}
+	return c.Batches.CreateBankStatement(ctx, req, &BatchesCreateBankStatementParams{Co: in.CompanyID})
 }
 
 // VerifiedWebhook — проверенный и распарсенный конверт исходящего вебхука организации (Svix).
