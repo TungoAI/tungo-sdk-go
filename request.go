@@ -567,6 +567,106 @@ func isEventStream(contentType string) bool {
 	return strings.EqualFold(strings.TrimSpace(mediaType), "text/event-stream")
 }
 
+// isReplayedJSON reports whether the answer to a stream call is a stored result replayed by
+// Idempotency-Key: application/json with Idempotent-Replayed: true.
+func isReplayedJSON(h http.Header) bool {
+	mediaType, _, _ := strings.Cut(h.Get("Content-Type"), ";")
+	return strings.EqualFold(strings.TrimSpace(mediaType), "application/json") &&
+		strings.EqualFold(strings.TrimSpace(h.Get("Idempotent-Replayed")), "true")
+}
+
+// replayAsEventStream turns a replayed ChatTurnResult into the text/event-stream body of the turn
+// it stands for: text (the answer), proposal, question, citation, error and choice events, then
+// done. The dialog id and the turn number, which a replay carries only in the body, are set as the
+// X-Dialog-Id and X-Turn-No headers of h when it lacks them.
+func replayAsEventStream(h http.Header, body []byte) ([]byte, error) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var result map[string]any
+	if err := dec.Decode(&result); err != nil || result == nil {
+		return nil, errors.New("the replayed response is not a JSON object")
+	}
+	dialogID, ok := result["dialog_id"].(string)
+	if !ok {
+		return nil, errors.New("the replayed response is not a chat turn result (no dialog_id)")
+	}
+	if h.Get("X-Dialog-Id") == "" {
+		h.Set("X-Dialog-Id", dialogID)
+	}
+	if turn, ok := result["turn_no"].(json.Number); ok && h.Get("X-Turn-No") == "" {
+		h.Set("X-Turn-No", turn.String())
+	}
+	var out bytes.Buffer
+	emit := func(event map[string]any) {
+		data, _ := json.Marshal(event)
+		out.WriteString("event: ")
+		out.WriteString(event["type"].(string))
+		out.WriteString("\ndata: ")
+		out.Write(data)
+		out.WriteString("\n\n")
+	}
+	// with copies an entry of the result as an event of the given type, without the drop key.
+	with := func(typ string, entry map[string]any, drop string) map[string]any {
+		event := make(map[string]any, len(entry)+1)
+		for k, v := range entry {
+			if k != drop {
+				event[k] = v
+			}
+		}
+		event["type"] = typ
+		return event
+	}
+	entries := func(key string) []map[string]any {
+		list, _ := result[key].([]any)
+		objects := make([]map[string]any, 0, len(list))
+		for _, item := range list {
+			if object, ok := item.(map[string]any); ok {
+				objects = append(objects, object)
+			}
+		}
+		return objects
+	}
+	answer, _ := result["answer"].(string)
+	if answer != "" {
+		emit(map[string]any{"type": "text", "delta": answer})
+	}
+	for _, p := range entries("proposals") {
+		event := with("proposal", p, "id")
+		event["proposal_id"] = p["id"]
+		emit(event)
+	}
+	for _, q := range entries("questions") {
+		emit(with("question", q, ""))
+	}
+	for _, c := range entries("citations") {
+		emit(with("citation", c, ""))
+	}
+	var requestID any
+	if id := h.Get("x-request-id"); id != "" {
+		requestID = id
+	}
+	for _, e := range entries("errors") {
+		emit(map[string]any{"type": "error", "error": e, "request_id": requestID})
+	}
+	done := map[string]any{"type": "done", "answer": answer}
+	if reason, ok := result["stop_reason"].(string); ok {
+		done["stop_reason"] = reason
+	}
+	if usage, ok := result["usage"].(map[string]any); ok {
+		done["usage"] = with("", usage, "cost_tiyn")
+		delete(done["usage"].(map[string]any), "type")
+		if cost, ok := usage["cost_tiyn"]; ok {
+			done["cost_tiyn"] = cost
+		}
+	}
+	if pending, ok := result["pending_question"].(map[string]any); ok {
+		emit(with("choice", pending, ""))
+		done["choice_id"] = pending["choice_id"]
+	}
+	emit(done)
+	return out.Bytes(), nil
+}
+
 // idleTimer cancels a stream when a read waits for bytes longer than the idle timeout. It runs
 // while the response headers are awaited and during every read of the body, and is stopped in
 // between (see idleReader).
@@ -603,7 +703,25 @@ func (c *config) attemptStream(parent context.Context, req *http.Request, op str
 		}
 		return nil, parseAPIError(resp.StatusCode, resp.Header, body, time.Now())
 	}
-	if contentType := resp.Header.Get("Content-Type"); !isEventStream(contentType) {
+	if contentType := resp.Header.Get("Content-Type"); isReplayedJSON(resp.Header) {
+		// A chat turn repeated with the same Idempotency-Key after it finished: the server answers
+		// the stored ChatTurnResult instead of a stream. The caller gets the events it stands for.
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			idle.stop()
+			cause := context.Cause(ctx)
+			cancel(nil)
+			return nil, transportError(parent, op, readErr, cause, idle.timeout)
+		}
+		stream, err := replayAsEventStream(resp.Header, body)
+		if err != nil {
+			idle.stop()
+			cancel(nil)
+			return nil, &DecodeError{Op: op, StatusCode: resp.StatusCode, RequestID: resp.Header.Get("x-request-id"), Body: body, Err: err}
+		}
+		resp.Body = io.NopCloser(bytes.NewReader(stream))
+	} else if !isEventStream(contentType) {
 		// A success that is not a stream (a proxy page, a JSON answer) must not look like a
 		// stream without events.
 		body, _ := readErrorBody(resp.Body)

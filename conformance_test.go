@@ -219,24 +219,40 @@ type vectorsFile struct {
 		} `json:"expect"`
 	} `json:"sse"`
 
-	ChatStream []struct {
+	ChatStream []vecChatStream `json:"chat_stream"`
+
+	// ChatStreamReplay are stream calls answered with a ChatTurnResult replayed by Idempotency-Key.
+	ChatStreamReplay []struct {
 		Name    string            `json:"name"`
 		Status  int               `json:"status"`
 		Headers map[string]string `json:"headers"`
-		Raw     string            `json:"raw"`
+		Body    json.RawMessage   `json:"body"`
 		Expect  struct {
-			DialogID   string         `json:"dialog_id"`
-			TurnNo     int64          `json:"turn_no"`
-			Text       string         `json:"text"`
-			StopReason *string        `json:"stop_reason"`
-			EventCount int            `json:"event_count"`
-			EventTypes []string       `json:"event_types"`
-			CostTiyn   *int64         `json:"cost_tiyn"`
-			Usage      map[string]any `json:"usage"`
-			ChoiceID   *string        `json:"choice_id"`
-			Error      *vecWireError  `json:"error"`
+			vecChatExpect
+			DecodeError bool `json:"decode_error"`
 		} `json:"expect"`
-	} `json:"chat_stream"`
+	} `json:"chat_stream_replay"`
+}
+
+type vecChatStream struct {
+	Name    string            `json:"name"`
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers"`
+	Raw     string            `json:"raw"`
+	Expect  vecChatExpect     `json:"expect"`
+}
+
+type vecChatExpect struct {
+	DialogID   string         `json:"dialog_id"`
+	TurnNo     int64          `json:"turn_no"`
+	Text       string         `json:"text"`
+	StopReason *string        `json:"stop_reason"`
+	EventCount int            `json:"event_count"`
+	EventTypes []string       `json:"event_types"`
+	CostTiyn   *int64         `json:"cost_tiyn"`
+	Usage      map[string]any `json:"usage"`
+	ChoiceID   *string        `json:"choice_id"`
+	Error      *vecWireError  `json:"error"`
 }
 
 func loadVectors(t *testing.T) *vectorsFile {
@@ -858,94 +874,129 @@ func TestConformanceChatStream(t *testing.T) {
 		t.Fatal("no cases")
 	}
 	for _, c := range v.ChatStream {
+		t.Run(c.Name, func(t *testing.T) { checkChatStream(t, c) })
+	}
+}
+
+// TestConformanceChatStreamReplay repeats a stream call after its turn finished: the stored
+// ChatTurnResult the server replays must arrive as the events of that turn, not as a DecodeError.
+func TestConformanceChatStreamReplay(t *testing.T) {
+	v := loadVectors(t)
+	if len(v.ChatStreamReplay) == 0 {
+		t.Fatal("no cases")
+	}
+	for _, c := range v.ChatStreamReplay {
 		t.Run(c.Name, func(t *testing.T) {
+			if !c.Expect.DecodeError {
+				checkChatStream(t, vecChatStream{Name: c.Name, Status: c.Status, Headers: c.Headers, Raw: string(c.Body), Expect: c.Expect.vecChatExpect})
+				return
+			}
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Accept") != "text/event-stream" {
-					t.Errorf("Accept = %q", r.Header.Get("Accept"))
-				}
-				var body map[string]any
-				_ = json.NewDecoder(r.Body).Decode(&body)
-				if body["stream"] != true {
-					t.Errorf("the streaming call must send stream:true, body %v", body)
-				}
 				for k, val := range c.Headers {
 					w.Header().Set(k, val)
 				}
 				w.WriteHeader(c.Status)
-				_, _ = io.WriteString(w, c.Raw)
+				_, _ = w.Write(c.Body)
 			}))
 			defer srv.Close()
 			client := NewClient(WithAPIKey("k"), WithBaseURL(srv.URL), WithCompanyID("co_1"))
 			stream, err := client.Chat.CreateStream(context.Background(), ChatMessageRequest{Message: Ptr("?")})
-			if err != nil {
-				t.Fatal(err)
-			}
-			var live []string
-			turn, err := stream.Accumulate(func(ev ChatEvent) { live = append(live, ev.Tag()) })
-			want := c.Expect
-
-			// A stream that closes before its done event is not a finished turn: Accumulate still
-			// returns what arrived (checked below), together with an error.
-			if want.Error == nil && want.EventTypes != nil && !slices.Contains(want.EventTypes, "done") {
-				var decErr *DecodeError
-				if !errors.As(err, &decErr) || !errors.Is(err, ErrStreamIncomplete) {
-					t.Fatalf("a stream without done: want a *DecodeError for ErrStreamIncomplete, got %T %v", err, err)
-				}
-			} else if want.Error == nil {
-				if err != nil {
-					t.Fatalf("unexpected error %v", err)
-				}
-			} else {
-				var turnErr *TurnError
-				if !errors.As(err, &turnErr) {
-					t.Fatalf("want *TurnError, got %T %v", err, err)
-				}
-				gotExtra := map[string]json.RawMessage{}
-				for k, val := range turnErr.Extra {
-					gotExtra[k] = val
-				}
-				if turnErr.Type != want.Error.Type || turnErr.Code != deref(want.Error.Code) || turnErr.Message != want.Error.Message ||
-					turnErr.RequestID != deref(want.Error.RequestID) || !sameJSON(t, gotExtra, want.Error.Extra) || string(turnErr.Kind) != want.Error.Type {
-					t.Errorf("turn error %+v (extra %s), want %+v", turnErr, gotExtra, want.Error)
-				}
-			}
-			if turn.DialogID != want.DialogID || turn.TurnNo != want.TurnNo {
-				t.Errorf("dialog %q turn %d, want %q %d (from the response headers)", turn.DialogID, turn.TurnNo, want.DialogID, want.TurnNo)
-			}
-			if turn.Text != want.Text {
-				t.Errorf("text %q, want %q", turn.Text, want.Text)
-			}
-			if turn.StopReason != deref(want.StopReason) || (turn.Done == nil) != (want.StopReason == nil) {
-				t.Errorf("stop reason %q (done %v), want %v", turn.StopReason, turn.Done != nil, want.StopReason)
-			}
-			if len(turn.Events) != want.EventCount || len(live) != want.EventCount {
-				t.Errorf("%d events (%d seen live), want %d", len(turn.Events), len(live), want.EventCount)
-			}
-			if want.EventTypes != nil && !reflect.DeepEqual(live, want.EventTypes) {
-				t.Errorf("event types %v, want %v", live, want.EventTypes)
-			}
-			var cost *int64
-			var usage any
-			choice := ""
-			if turn.Done != nil {
-				cost = turn.Done.CostTiyn
-				if turn.Done.Usage != nil {
-					usage = turn.Done.Usage
-				}
-				choice = deref(turn.Done.ChoiceID)
-			}
-			if (cost == nil) != (want.CostTiyn == nil) || (cost != nil && *cost != *want.CostTiyn) {
-				t.Errorf("cost %v, want %v", cost, want.CostTiyn)
-			}
-			if (usage == nil) != (want.Usage == nil) || (usage != nil && !sameJSON(t, usage, want.Usage)) {
-				t.Errorf("usage %+v, want %v", usage, want.Usage)
-			}
-			if choice != deref(want.ChoiceID) {
-				t.Errorf("choice id %q, want %v", choice, want.ChoiceID)
-			}
-			if stream.Response().RequestID() != c.Headers["x-request-id"] {
-				t.Errorf("request id %q", stream.Response().RequestID())
+			var decErr *DecodeError
+			if stream != nil || !errors.As(err, &decErr) || decErr.StatusCode != c.Status {
+				t.Fatalf("want a *DecodeError, got %v %T %v", stream, err, err)
 			}
 		})
+	}
+}
+
+// checkChatStream runs one chat stream case through Chat.CreateStream and Accumulate.
+func checkChatStream(t *testing.T, c vecChatStream) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Accept") != "text/event-stream" {
+			t.Errorf("Accept = %q", r.Header.Get("Accept"))
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["stream"] != true {
+			t.Errorf("the streaming call must send stream:true, body %v", body)
+		}
+		for k, val := range c.Headers {
+			w.Header().Set(k, val)
+		}
+		w.WriteHeader(c.Status)
+		_, _ = io.WriteString(w, c.Raw)
+	}))
+	defer srv.Close()
+	client := NewClient(WithAPIKey("k"), WithBaseURL(srv.URL), WithCompanyID("co_1"))
+	stream, err := client.Chat.CreateStream(context.Background(), ChatMessageRequest{Message: Ptr("?")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var live []string
+	turn, err := stream.Accumulate(func(ev ChatEvent) { live = append(live, ev.Tag()) })
+	want := c.Expect
+
+	// A stream that closes before its done event is not a finished turn: Accumulate still
+	// returns what arrived (checked below), together with an error.
+	if want.Error == nil && want.EventTypes != nil && !slices.Contains(want.EventTypes, "done") {
+		var decErr *DecodeError
+		if !errors.As(err, &decErr) || !errors.Is(err, ErrStreamIncomplete) {
+			t.Fatalf("a stream without done: want a *DecodeError for ErrStreamIncomplete, got %T %v", err, err)
+		}
+	} else if want.Error == nil {
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
+		}
+	} else {
+		var turnErr *TurnError
+		if !errors.As(err, &turnErr) {
+			t.Fatalf("want *TurnError, got %T %v", err, err)
+		}
+		gotExtra := map[string]json.RawMessage{}
+		for k, val := range turnErr.Extra {
+			gotExtra[k] = val
+		}
+		if turnErr.Type != want.Error.Type || turnErr.Code != deref(want.Error.Code) || turnErr.Message != want.Error.Message ||
+			turnErr.RequestID != deref(want.Error.RequestID) || !sameJSON(t, gotExtra, want.Error.Extra) || string(turnErr.Kind) != want.Error.Type {
+			t.Errorf("turn error %+v (extra %s), want %+v", turnErr, gotExtra, want.Error)
+		}
+	}
+	if turn.DialogID != want.DialogID || turn.TurnNo != want.TurnNo {
+		t.Errorf("dialog %q turn %d, want %q %d (from the response headers)", turn.DialogID, turn.TurnNo, want.DialogID, want.TurnNo)
+	}
+	if turn.Text != want.Text {
+		t.Errorf("text %q, want %q", turn.Text, want.Text)
+	}
+	if turn.StopReason != deref(want.StopReason) || (turn.Done == nil) != (want.StopReason == nil) {
+		t.Errorf("stop reason %q (done %v), want %v", turn.StopReason, turn.Done != nil, want.StopReason)
+	}
+	if len(turn.Events) != want.EventCount || len(live) != want.EventCount {
+		t.Errorf("%d events (%d seen live), want %d", len(turn.Events), len(live), want.EventCount)
+	}
+	if want.EventTypes != nil && !reflect.DeepEqual(live, want.EventTypes) {
+		t.Errorf("event types %v, want %v", live, want.EventTypes)
+	}
+	var cost *int64
+	var usage any
+	choice := ""
+	if turn.Done != nil {
+		cost = turn.Done.CostTiyn
+		if turn.Done.Usage != nil {
+			usage = turn.Done.Usage
+		}
+		choice = deref(turn.Done.ChoiceID)
+	}
+	if (cost == nil) != (want.CostTiyn == nil) || (cost != nil && *cost != *want.CostTiyn) {
+		t.Errorf("cost %v, want %v", cost, want.CostTiyn)
+	}
+	if (usage == nil) != (want.Usage == nil) || (usage != nil && !sameJSON(t, usage, want.Usage)) {
+		t.Errorf("usage %+v, want %v", usage, want.Usage)
+	}
+	if choice != deref(want.ChoiceID) {
+		t.Errorf("choice id %q, want %v", choice, want.ChoiceID)
+	}
+	if stream.Response().RequestID() != c.Headers["x-request-id"] {
+		t.Errorf("request id %q", stream.Response().RequestID())
 	}
 }
