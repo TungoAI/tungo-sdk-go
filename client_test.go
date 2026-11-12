@@ -1779,10 +1779,31 @@ func TestSendHookAndPostHookBehaveIdentically(t *testing.T) {
 			if r.Header.Get("x-api-key") != "" || r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("%s: headers %v", name, r.Header)
 			}
-			if key := r.Header.Get("Idempotency-Key"); key == "" || key != reqs[0].Header.Get("Idempotency-Key") {
-				t.Errorf("%s: Idempotency-Key %q is not stable across attempts", name, key)
+			// The backend reads Idempotency-Key before X-Event-Id: the event id must be the key.
+			if key := r.Header.Get("Idempotency-Key"); key != "evt-77" {
+				t.Errorf("%s: Idempotency-Key %q, want the event id", name, key)
 			}
 		}
+	}
+
+	// A key the caller gives wins over the event id; without an event id the key is random.
+	m = newMock(t, respond(202, accepted))
+	client = m.client(nil)
+	if _, err := client.SendHook(ctx, "tok", payload, &SendHookParams{EventID: "evt-77"}, WithIdempotencyKey("own")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.SendHook(ctx, "tok", payload, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.SendHook(ctx, "tok", payload, nil); err != nil {
+		t.Fatal(err)
+	}
+	keys := m.requests()
+	if keys[0].Header.Get("Idempotency-Key") != "own" || keys[0].Header.Get("X-Event-Id") != "evt-77" {
+		t.Errorf("explicit key: %v", keys[0].Header)
+	}
+	if a, b := keys[1].Header.Get("Idempotency-Key"), keys[2].Header.Get("Idempotency-Key"); a == "" || a == b {
+		t.Errorf("generated keys %q and %q", a, b)
 	}
 
 	// Arbitrary bytes and content types go out untouched; without a secret there is no signature.

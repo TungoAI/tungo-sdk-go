@@ -1988,7 +1988,7 @@ type AutomationsPostHookParams struct {
 //
 // POST /hooks/{token}
 //
-// An Idempotency-Key is generated automatically and reused for retries; override it with WithIdempotencyKey.
+// The event id is sent as the Idempotency-Key (a random key without one) and reused for retries; override it with WithIdempotencyKey.
 func (s *AutomationsService) PostHook(ctx context.Context, token string, body []byte, params *AutomationsPostHookParams, opts ...Option) (*AutomationHookAccepted, error) {
 	spec := requestSpec{
 		method:     "POST",
@@ -2000,6 +2000,9 @@ func (s *AutomationsService) PostHook(ctx context.Context, token string, body []
 	spec.rawBody, spec.hasBody = body, true
 	if params != nil {
 		spec.setHeader("X-Event-Id", params.EventID)
+		if params.EventID != nil {
+			spec.defaultKey = *params.EventID
+		}
 		spec.setHeader("X-Signature", params.Signature)
 		spec.contentType = params.ContentType
 	}

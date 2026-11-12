@@ -85,6 +85,9 @@ type requestSpec struct {
 	contentType string // of rawBody; default application/json
 	auth        authMode
 	idempotent  bool // the contract declares the Idempotency-Key header
+	// defaultKey is the Idempotency-Key used when the caller gives none (the event id of a hook
+	// event): the backend reads Idempotency-Key before X-Event-Id, so a random key would override it.
+	defaultKey  string
 	longRunning bool // non-streaming chat turn: DefaultChatTimeout
 	stream      bool // server-sent events: no total timeout
 }
@@ -340,6 +343,9 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 	idempotencyKey := cfg.idempotencyKey
 	if idempotencyKey == "" {
 		idempotencyKey = cfg.header().Get("Idempotency-Key")
+	}
+	if idempotencyKey == "" && spec.idempotent {
+		idempotencyKey = spec.defaultKey
 	}
 	if idempotencyKey == "" && spec.idempotent {
 		idempotencyKey = newIdempotencyKey()
