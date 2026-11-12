@@ -230,8 +230,10 @@ func WithHeaderDel(name string) Option {
 }
 
 // WithIdempotencyKey sets the Idempotency-Key of a call instead of the generated one. The same
-// key is sent on every attempt. Giving a key to a POST or PATCH operation makes it safe to
-// retry. Use it per call, not as a client default.
+// key is sent on every attempt. It applies only to the operations whose documentation says they
+// send an Idempotency-Key (those are retried anyway); any other operation ignores it and is not
+// sent with it, and a POST or PATCH among them is still never retried. Use it per call, not as
+// a client default.
 func WithIdempotencyKey(key string) Option { return func(c *config) { c.idempotencyKey = key } }
 
 // WithResponseInto stores the HTTP response metadata of the call (status, headers, request id,

@@ -340,15 +340,20 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 		}
 	}
 
-	idempotencyKey := cfg.idempotencyKey
-	if idempotencyKey == "" {
-		idempotencyKey = cfg.header().Get("Idempotency-Key")
-	}
-	if idempotencyKey == "" && spec.idempotent {
-		idempotencyKey = spec.defaultKey
-	}
-	if idempotencyKey == "" && spec.idempotent {
-		idempotencyKey = newIdempotencyKey()
+	// A key goes only to an operation whose contract declares Idempotency-Key. Anywhere else the
+	// API ignores it, so sending it would make a retry look safe when it repeats the action.
+	idempotencyKey := ""
+	if spec.idempotent {
+		idempotencyKey = cfg.idempotencyKey
+		if idempotencyKey == "" {
+			idempotencyKey = cfg.header().Get("Idempotency-Key")
+		}
+		if idempotencyKey == "" {
+			idempotencyKey = spec.defaultKey
+		}
+		if idempotencyKey == "" {
+			idempotencyKey = newIdempotencyKey()
+		}
 	}
 	repeatable := safeToRepeat(spec.method, idempotencyKey != "")
 
@@ -389,6 +394,7 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 		} else {
 			req.Header.Del("Authorization")
 		}
+		req.Header.Del("Idempotency-Key")
 		if idempotencyKey != "" {
 			req.Header.Set("Idempotency-Key", idempotencyKey)
 		}

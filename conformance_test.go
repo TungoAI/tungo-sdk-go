@@ -181,6 +181,7 @@ type vectorsFile struct {
 		Name           string `json:"name"`
 		Method         string `json:"method"`
 		IdempotencyKey bool   `json:"idempotency_key"`
+		CallerKey      bool   `json:"caller_key"`
 		Cause          any    `json:"cause"`
 		Expect         struct {
 			Retry bool `json:"retry"`
@@ -637,9 +638,18 @@ func TestConformanceRetryPolicy(t *testing.T) {
 				err = client.Webhooks.DeleteEndpoint(ctx, "ep_1")
 			case c.Method == "POST" && c.IdempotencyKey:
 				_, err = client.Automations.RotateHook(ctx, "hook_1") // the SDK generates the key
+			case c.Method == "POST" && c.CallerKey:
+				// chat.stop declares no Idempotency-Key: the caller's key does not make it repeatable.
+				_, err = client.Chat.Stop(ctx, "dlg_1", WithIdempotencyKey("caller-key"), WithHeader("Idempotency-Key", "header-key"))
 			case c.Method == "POST":
 				_, err = client.Chat.Stop(ctx, "dlg_1")
 			case c.Method == "PATCH" && c.IdempotencyKey:
+				// No PATCH operation of the contract declares Idempotency-Key: only the policy is checked.
+				if retry := safeToRepeat(c.Method, true) && (cause != "" || retryableStatus(status)); retry != c.Expect.Retry {
+					t.Errorf("policy says retry = %v, want %v", retry, c.Expect.Retry)
+				}
+				return
+			case c.Method == "PATCH" && c.CallerKey:
 				_, err = client.Chat.Update(ctx, "dlg_1", ChatDialogPatch{}, WithIdempotencyKey("caller-key"))
 			case c.Method == "PATCH":
 				_, err = client.Chat.Update(ctx, "dlg_1", ChatDialogPatch{})

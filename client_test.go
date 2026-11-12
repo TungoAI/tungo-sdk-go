@@ -888,6 +888,15 @@ func TestRetriesBackoffAndIdempotencyKey(t *testing.T) {
 		t.Errorf("caller key / WithMaxRetries(1): %d requests, key %q", n, reqs[n-1].Header.Get("Idempotency-Key"))
 	}
 
+	// A caller's key does not make a POST repeatable when the operation declares no
+	// Idempotency-Key: the API ignores it there, and a retry would queue and bill the runs again.
+	m = newMock(t, fail(502))
+	_, err = m.client(nil).Automations.TestHook(ctx, "hook_1", AutomationHookTestInput{Run: Ptr(true)},
+		WithIdempotencyKey("t-1"), WithHeader("Idempotency-Key", "t-2"))
+	if n := len(m.requests()); n != 1 || err == nil || m.last().Header.Get("Idempotency-Key") != "" {
+		t.Errorf("POST with an undeclared caller key: %d attempts, err %v, key %q", n, err, m.last().Header.Get("Idempotency-Key"))
+	}
+
 	// A POST without a key is never retried; a GET is; WithMaxRetries(0) disables retries.
 	m = newMock(t, fail(500))
 	client = m.client(nil)
