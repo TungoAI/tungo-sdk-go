@@ -14,7 +14,7 @@ type ApiKey struct {
 	AllCompanies bool `json:"all_companies"`
 	// С каких IP и подсетей CIDR ключ работает; с другого адреса — 403 ip_not_allowed. null — с любых
 	AllowedIps []string `json:"allowed_ips"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -34,6 +34,8 @@ type ApiKey struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeyPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -71,7 +73,7 @@ func (v ApiKey) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKey) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -101,8 +103,10 @@ type ApiKeyCreate struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn,omitempty"`
 	// Название ключа для людей (1–100 знаков): где он используется
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: ни одной компании он не видит — ни сейчас, ни будущих; company_ids и all_companies не передаются, права — только company.read (он ничего не открывает). По умолчанию false
+	NoCompanies *bool `json:"no_companies,omitempty"`
 	// Права ключа (1–20): `company.read` — читать данные компаний (добавляется всегда, даже если не передано); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобр…
-	Permissions []string `json:"permissions"`
+	Permissions []string `json:"permissions,omitzero"`
 	// Предел записи в 1С по ключу: какие виды документов ключ может одобрять (как kinds правила автоодобрения: sale, purchase, bank_receipt, bank_payment, counterparty, contract, inventory_writeoff, cash_order_in, cash_order_o…
 	WriteKinds []ApiKeyCreateWriteKindItem `json:"write_kinds,omitzero"`
 	// Предел записи в 1С по ключу: сумма всех документов, одобренных ключом за день по Алматы, в тиынах. Документ с неизвестным исходом записи (1С не ответила) тоже считается. null — без предела. При изменении: не передан — не…
@@ -128,17 +132,7 @@ func (v ApiKeyCreate) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyCreate) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "expires_at", "monthly_cap_tiyn", "name", "permissions", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
-}
-
-// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
-func (v ApiKeyCreate) MarshalJSON() ([]byte, error) {
-	type plain ApiKeyCreate
-	p := plain(v)
-	if p.Permissions == nil {
-		p.Permissions = []string{}
-	}
-	return json.Marshal(p)
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "expires_at", "monthly_cap_tiyn", "name", "no_companies", "permissions", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // ApiKeyCreateWriteKindItem is an enumeration of the API contract.
@@ -178,7 +172,7 @@ type ApiKeyCreated struct {
 	AllCompanies bool `json:"all_companies"`
 	// С каких IP и подсетей CIDR ключ работает; с другого адреса — 403 ip_not_allowed. null — с любых
 	AllowedIps []string `json:"allowed_ips"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -202,6 +196,8 @@ type ApiKeyCreated struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeyCreatedPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -255,7 +251,7 @@ func (v ApiKeyCreated) Format(f fmt.State, verb rune) {
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyCreated) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "key", "key_note", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "warnings", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "key", "key_note", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "warnings", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -322,7 +318,7 @@ type ApiKeyDetails struct {
 	AllowedIps []string `json:"allowed_ips"`
 	// Почему ключ сейчас не сработает — тот же код, что вернул бы отказ; null — всё хорошо. Вызов ИИ оценивается средней ценой, настоящая цена может быть выше. Ограничение по адресу (allowed_ips) здесь не проверяется: оно своё…
 	BlockedReason *ApiKeyDetailsBlockedReason `json:"blocked_reason"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -342,6 +338,8 @@ type ApiKeyDetails struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeyDetailsPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -379,7 +377,7 @@ func (v ApiKeyDetails) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyDetails) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "blocked_reason", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "blocked_reason", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -508,6 +506,8 @@ type ApiKeyPatch struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn,omitempty"`
 	// Название ключа для людей (1–100 знаков): где он используется
 	Name *string `json:"name,omitempty"`
+	// Ключ без доступа к компаниям и их 1С: ни одной компании он не видит — ни сейчас, ни будущих; company_ids и all_companies не передаются, права — только company.read (он ничего не открывает). true — ключ теряет доступ ко в…
+	NoCompanies *bool `json:"no_companies,omitempty"`
 	// Права ключа (1–20): `company.read` — читать данные компаний (добавляется всегда, даже если не передано); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобр…
 	Permissions []string `json:"permissions,omitzero"`
 	// Предел записи в 1С по ключу: какие виды документов ключ может одобрять (как kinds правила автоодобрения: sale, purchase, bank_receipt, bank_payment, counterparty, contract, inventory_writeoff, cash_order_in, cash_order_o…
@@ -535,7 +535,7 @@ func (v ApiKeyPatch) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyPatch) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "expires_at", "monthly_cap_tiyn", "name", "permissions", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "expires_at", "monthly_cap_tiyn", "name", "no_companies", "permissions", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // ApiKeyPatchWriteKindItem is an enumeration of the API contract.
@@ -654,7 +654,7 @@ type ApiKeyRolled struct {
 	AllCompanies bool `json:"all_companies"`
 	// С каких IP и подсетей CIDR ключ работает; с другого адреса — 403 ip_not_allowed. null — с любых
 	AllowedIps []string `json:"allowed_ips"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -666,8 +666,10 @@ type ApiKeyRolled struct {
 	ExpiresAt string `json:"expires_at"`
 	// id ключа (key_…) — для адресов …/api-keys/{id}
 	ID string `json:"id"`
-	// Новый ключ целиком (tg_…) — один раз: показать с кнопкой «Скопировать»
-	Key string `json:"key"`
+	// Новый ключ целиком (tg_…) — один раз: показать с кнопкой «Скопировать». В повторе по Idempotency-Key — null
+	Key *string `json:"key"`
+	// Только в повторе по Idempotency-Key: почему key = null и что делать, если новый секрет потерян (сменить ещё раз)
+	KeyNote *string `json:"key_note,omitempty"`
 	// Когда ключом пользовались последний раз, ISO 8601 UTC (точность — около минуты); null — ещё ни разу
 	LastUsedAt *string `json:"last_used_at"`
 	// С какого IP-адреса был последний запрос; null — ещё ни разу
@@ -676,6 +678,8 @@ type ApiKeyRolled struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeyRolledPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -721,15 +725,15 @@ func (v ApiKeyRolled) Format(f fmt.State, verb rune) {
 	shown := plain(v)
 	shown.raw = nil
 	hidden := "[REDACTED]"
-	if shown.Key != "" {
-		shown.Key = hidden
+	if shown.Key != nil {
+		shown.Key = &hidden
 	}
 	fmt.Fprintf(f, fmt.FormatString(f, verb), shown)
 }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyRolled) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "key", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "previous_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "key", "key_note", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "previous_valid_until", "revoked_at", "status", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -793,7 +797,7 @@ type ApiKeySelf struct {
 	AllowedIps []string `json:"allowed_ips"`
 	// Почему ключ сейчас не сработает — тот же код, что вернул бы отказ; null — всё хорошо. Вызов ИИ оценивается средней ценой, настоящая цена может быть выше. Ограничение по адресу (allowed_ips) здесь не проверяется: оно своё…
 	BlockedReason *ApiKeySelfBlockedReason `json:"blocked_reason"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -815,6 +819,8 @@ type ApiKeySelf struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeySelfPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -856,7 +862,7 @@ func (v ApiKeySelf) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeySelf) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "blocked_reason", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "month", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "rate_limit", "revoked_at", "status", "workspace", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "blocked_reason", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "month", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "rate_limit", "revoked_at", "status", "workspace", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -1065,7 +1071,7 @@ type ApiKeyUpdated struct {
 	AllCompanies bool `json:"all_companies"`
 	// С каких IP и подсетей CIDR ключ работает; с другого адреса — 403 ip_not_allowed. null — с любых
 	AllowedIps []string `json:"allowed_ips"`
-	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies)
+	// Компании, к которым ключ даёт доступ (co_…); пусто у ключа на все компании (all_companies) и у ключа без компаний (no_companies)
 	CompanyIDs []string `json:"company_ids"`
 	// Когда выпущен, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
@@ -1085,6 +1091,8 @@ type ApiKeyUpdated struct {
 	MonthlyCapTiyn *int64 `json:"monthly_cap_tiyn"`
 	// Название ключа для людей
 	Name string `json:"name"`
+	// Ключ без доступа к компаниям и их 1С: company_ids пуст, all_companies = false; компаний не видит никогда. Пустой company_ids сам по себе вида не называет — смотреть на all_companies и no_companies
+	NoCompanies bool `json:"no_companies"`
 	// Права ключа: `company.read` — читать данные компаний (есть всегда); `chat.use` — работать с ИИ-бухгалтером; `proposals.create` — готовить документы для 1С; `proposals.approve` — одобрять запись в 1С; `automations.read` —…
 	Permissions []ApiKeyUpdatedPermissionItem `json:"permissions"`
 	// Открытая часть ключа для показа — узнать ключ среди других; сам ключ (tg_…_секрет) целиком не хранится
@@ -1124,7 +1132,7 @@ func (v ApiKeyUpdated) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ApiKeyUpdated) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "warnings", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
+	return extraFields(v.raw, "all_companies", "allowed_ips", "company_ids", "created_at", "created_by", "disabled_at", "expires_at", "id", "last_used_at", "last_used_ip", "monthly_cap_tiyn", "name", "no_companies", "permissions", "prefix", "previous_secret_valid_until", "revoked_at", "status", "warnings", "workspace_id", "write_kinds", "write_max_amount_per_day_tiyn", "write_max_amount_per_document_tiyn")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -1303,7 +1311,7 @@ func (v ApiKeyUsageByDayItem) ExtraFields() map[string]json.RawMessage {
 type ApiKeyUsageByModelItem struct {
 	// Стоимость в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	CostTiyn int64 `json:"cost_tiyn"`
-	// Модель ИИ (техническое имя)
+	// Модель ИИ: tungo-1-flash, tungo-1, tungo-1-deep (tungo-search, tungo-legacy)
 	Model string `json:"model"`
 	// Сколько вызовов ИИ
 	Requests int64 `json:"requests"`
@@ -1603,9 +1611,11 @@ func (v ApproveRequest) ExtraFields() map[string]json.RawMessage {
 
 // AuditEntry: Запись журнала организации: кто, когда и что сделал.
 type AuditEntry struct {
-	// Что сделано — машинное имя вида «объект.действие»; подпись по-русски — в action_title. Значения: - `company.created` — Компания заведена - `company.updated` — Карточка компании изменена - `company.archived` — Компания уб…
+	// Код действия вида «объект.действие». Текст для человека собирайте сами на его языке: по этому коду и параметрам из data (ниже — что значит каждый код). Значения: - `company.created` — Компания заведена - `company.updated…
 	Action AuditEntryAction `json:"action"`
-	// Что сделано, по-русски — для показа
+	// Что сделано, готовой фразой по-русски. Оставлено для совместимости: фраза всегда русская, поэтому для показа берите код action и параметры data и подставляйте текст на языке человека
+	//
+	// Deprecated: the API contract marks this field as deprecated.
 	ActionTitle string `json:"action_title"`
 	// Кто сделал
 	Actor AuditEntryActor `json:"actor"`
@@ -1613,12 +1623,14 @@ type AuditEntry struct {
 	At *string `json:"at"`
 	// Компания, к которой относится запись (co_…); null — запись об организации в целом
 	CompanyID *string `json:"company_id"`
-	// Подробности действия (JSON, ключи snake_case): например { before, after } у изменений. Вид зависит от action — показывать как дополнительные сведения
+	// Параметры действия (JSON, ключи snake_case) — для подстановки в текст и для подробностей: например { role } у смены роли, { from, amount_tiyn, kind } у платежа, { before, after } у изменений. Набор зависит от action
 	Data any `json:"data,omitzero"`
 	// id записи (aud_…)
 	ID string `json:"id"`
 	// IP, с которого пришёл запрос; null — фоновое действие
 	IP *string `json:"ip"`
+	// Над чем сделано — с названием, чтобы не показывать безликое «Организация»: в отличие от target, у действий с вебхуком это сам адрес вебхука, у платежа есть сумма и назначение. null — без отдельного объекта. По ключу API …
+	Object *AuditEntryObject `json:"object"`
 	// Номер запроса (req_…) — по нему поддержка найдёт запрос; null — фоновое действие
 	RequestID *string `json:"request_id"`
 	// Над чем сделано; null — без отдельного объекта
@@ -1642,10 +1654,10 @@ func (v AuditEntry) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v AuditEntry) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "action", "action_title", "actor", "at", "company_id", "data", "id", "ip", "request_id", "target")
+	return extraFields(v.raw, "action", "action_title", "actor", "at", "company_id", "data", "id", "ip", "object", "request_id", "target")
 }
 
-// AuditEntryAction: Что сделано — машинное имя вида «объект.действие»; подпись по-русски — в action_title. Значения: - `company.created` — Компания заведена - `company.updated` — Карточка компании изменена - `company.archived` — Компания уб…
+// AuditEntryAction: Код действия вида «объект.действие». Текст для человека собирайте сами на его языке: по этому коду и параметрам из data (ниже — что значит каждый код). Значения: - `company.created` — Компания заведена - `company.updated…
 //
 // The set is open: a value this SDK version does not know is kept as it was received.
 type AuditEntryAction string
@@ -1684,6 +1696,8 @@ const (
 	AuditEntryActionCompanyOneCConnectorPaired AuditEntryAction = "company.onec_connector_paired"
 	// AuditEntryActionCompanyOneCConnectorRotated is the value "company.onec_connector_rotated".
 	AuditEntryActionCompanyOneCConnectorRotated AuditEntryAction = "company.onec_connector_rotated"
+	// AuditEntryActionCompanyOneCConnectorRotateRefused is the value "company.onec_connector_rotate_refused".
+	AuditEntryActionCompanyOneCConnectorRotateRefused AuditEntryAction = "company.onec_connector_rotate_refused"
 	// AuditEntryActionCompanyOneCConnectorRevoked is the value "company.onec_connector_revoked".
 	AuditEntryActionCompanyOneCConnectorRevoked AuditEntryAction = "company.onec_connector_revoked"
 	// AuditEntryActionCompanyOneCConnectorLinkApproved is the value "company.onec_connector_link_approved".
@@ -1696,6 +1710,8 @@ const (
 	AuditEntryActionCompanyOneCLinkApproved AuditEntryAction = "company.onec_link_approved"
 	// AuditEntryActionCompanyOneCLinkRevoked is the value "company.onec_link_revoked".
 	AuditEntryActionCompanyOneCLinkRevoked AuditEntryAction = "company.onec_link_revoked"
+	// AuditEntryActionOneCLinkWrongMatch is the value "onec_link.wrong_match".
+	AuditEntryActionOneCLinkWrongMatch AuditEntryAction = "onec_link.wrong_match"
 	// AuditEntryActionCompanyProfileRebuild is the value "company.profile_rebuild".
 	AuditEntryActionCompanyProfileRebuild AuditEntryAction = "company.profile_rebuild"
 	// AuditEntryActionWorkspaceMemberJoined is the value "workspace.member_joined".
@@ -1738,6 +1754,10 @@ const (
 	AuditEntryActionWorkspaceDeleted AuditEntryAction = "workspace.deleted"
 	// AuditEntryActionWorkspaceCreated is the value "workspace.created".
 	AuditEntryActionWorkspaceCreated AuditEntryAction = "workspace.created"
+	// AuditEntryActionTeamCheckoutAbandoned is the value "team.checkout_abandoned".
+	AuditEntryActionTeamCheckoutAbandoned AuditEntryAction = "team.checkout_abandoned"
+	// AuditEntryActionEnterpriseRequestCreated is the value "enterprise.request_created".
+	AuditEntryActionEnterpriseRequestCreated AuditEntryAction = "enterprise.request_created"
 	// AuditEntryActionWorkspaceConvertedToTeam is the value "workspace.converted_to_team".
 	AuditEntryActionWorkspaceConvertedToTeam AuditEntryAction = "workspace.converted_to_team"
 	// AuditEntryActionWorkspaceDeletionScheduled is the value "workspace.deletion_scheduled".
@@ -1828,6 +1848,8 @@ const (
 	AuditEntryActionBillingPaymentMethodDisabled AuditEntryAction = "billing.payment_method.disabled"
 	// AuditEntryActionBillingRefundSucceeded is the value "billing.refund.succeeded".
 	AuditEntryActionBillingRefundSucceeded AuditEntryAction = "billing.refund.succeeded"
+	// AuditEntryActionBillingManualCharge is the value "billing.manual_charge".
+	AuditEntryActionBillingManualCharge AuditEntryAction = "billing.manual_charge"
 	// AuditEntryActionSubscriptionCreated is the value "subscription.created".
 	AuditEntryActionSubscriptionCreated AuditEntryAction = "subscription.created"
 	// AuditEntryActionSubscriptionChanged is the value "subscription.changed".
@@ -1878,6 +1900,40 @@ const (
 	AuditEntryActionAccountDeletionCancelled AuditEntryAction = "account.deletion_cancelled"
 	// AuditEntryActionAccountDeleted is the value "account.deleted".
 	AuditEntryActionAccountDeleted AuditEntryAction = "account.deleted"
+	// AuditEntryActionAccountEmailCodeSent is the value "account.email_code_sent".
+	AuditEntryActionAccountEmailCodeSent AuditEntryAction = "account.email_code_sent"
+	// AuditEntryActionAccountEmailBound is the value "account.email_bound".
+	AuditEntryActionAccountEmailBound AuditEntryAction = "account.email_bound"
+	// AuditEntryActionAccountTelegramMerged is the value "account.telegram_merged".
+	AuditEntryActionAccountTelegramMerged AuditEntryAction = "account.telegram_merged"
+	// AuditEntryActionAccountGoogleLinked is the value "account.google_linked".
+	AuditEntryActionAccountGoogleLinked AuditEntryAction = "account.google_linked"
+	// AuditEntryActionAccountTelegramMergeRefused is the value "account.telegram_merge_refused".
+	AuditEntryActionAccountTelegramMergeRefused AuditEntryAction = "account.telegram_merge_refused"
+	// AuditEntryActionAdminAdsConversionsReleased is the value "admin.ads.conversions_released".
+	AuditEntryActionAdminAdsConversionsReleased AuditEntryAction = "admin.ads.conversions_released"
+	// AuditEntryActionAdminAdsConversionsRejected is the value "admin.ads.conversions_rejected".
+	AuditEntryActionAdminAdsConversionsRejected AuditEntryAction = "admin.ads.conversions_rejected"
+	// AuditEntryActionAdminAdsSignupsExported is the value "admin.ads.signups_exported".
+	AuditEntryActionAdminAdsSignupsExported AuditEntryAction = "admin.ads.signups_exported"
+	// AuditEntryActionAdminAccessSignedIn is the value "admin.access.signed_in".
+	AuditEntryActionAdminAccessSignedIn AuditEntryAction = "admin.access.signed_in"
+	// AuditEntryActionAdminAccessRefused is the value "admin.access.refused".
+	AuditEntryActionAdminAccessRefused AuditEntryAction = "admin.access.refused"
+	// AuditEntryActionAdminTwoFactorVerified is the value "admin.two_factor.verified".
+	AuditEntryActionAdminTwoFactorVerified AuditEntryAction = "admin.two_factor.verified"
+	// AuditEntryActionAdminTwoFactorEnableRequested is the value "admin.two_factor.enable_requested".
+	AuditEntryActionAdminTwoFactorEnableRequested AuditEntryAction = "admin.two_factor.enable_requested"
+	// AuditEntryActionAdminTwoFactorEnabled is the value "admin.two_factor.enabled".
+	AuditEntryActionAdminTwoFactorEnabled AuditEntryAction = "admin.two_factor.enabled"
+	// AuditEntryActionAdminTwoFactorDisabled is the value "admin.two_factor.disabled".
+	AuditEntryActionAdminTwoFactorDisabled AuditEntryAction = "admin.two_factor.disabled"
+	// AuditEntryActionAdminSessionSignedIn is the value "admin.session.signed_in".
+	AuditEntryActionAdminSessionSignedIn AuditEntryAction = "admin.session.signed_in"
+	// AuditEntryActionAdminUserBanned is the value "admin.user.banned".
+	AuditEntryActionAdminUserBanned AuditEntryAction = "admin.user.banned"
+	// AuditEntryActionAdminUserUnbanned is the value "admin.user.unbanned".
+	AuditEntryActionAdminUserUnbanned AuditEntryAction = "admin.user.unbanned"
 	// AuditEntryActionAdminWorkspaceBlocked is the value "admin.workspace.blocked".
 	AuditEntryActionAdminWorkspaceBlocked AuditEntryAction = "admin.workspace.blocked"
 	// AuditEntryActionAdminWorkspaceUnblocked is the value "admin.workspace.unblocked".
@@ -1888,10 +1944,48 @@ const (
 	AuditEntryActionAdminUserPlatformRolesChanged AuditEntryAction = "admin.user.platform_roles_changed"
 	// AuditEntryActionAdminUserFreeEligibilityChanged is the value "admin.user.free_eligibility_changed".
 	AuditEntryActionAdminUserFreeEligibilityChanged AuditEntryAction = "admin.user.free_eligibility_changed"
+	// AuditEntryActionAdminUserLimitResetsGranted is the value "admin.user.limit_resets_granted".
+	AuditEntryActionAdminUserLimitResetsGranted AuditEntryAction = "admin.user.limit_resets_granted"
+	// AuditEntryActionAdminUserLimitResetsRevoked is the value "admin.user.limit_resets_revoked".
+	AuditEntryActionAdminUserLimitResetsRevoked AuditEntryAction = "admin.user.limit_resets_revoked"
+	// AuditEntryActionUsageLimitResetApplied is the value "usage.limit_reset_applied".
+	AuditEntryActionUsageLimitResetApplied AuditEntryAction = "usage.limit_reset_applied"
+	// AuditEntryActionReferralClaimed is the value "referral.claimed".
+	AuditEntryActionReferralClaimed AuditEntryAction = "referral.claimed"
+	// AuditEntryActionReferralRewarded is the value "referral.rewarded".
+	AuditEntryActionReferralRewarded AuditEntryAction = "referral.rewarded"
+	// AuditEntryActionAdminEnterpriseRequestStatusChanged is the value "admin.enterprise_request.status_changed".
+	AuditEntryActionAdminEnterpriseRequestStatusChanged AuditEntryAction = "admin.enterprise_request.status_changed"
 	// AuditEntryActionAdminTrainingExported is the value "admin.training.exported".
 	AuditEntryActionAdminTrainingExported AuditEntryAction = "admin.training.exported"
+	// AuditEntryActionAdminSettingChanged is the value "admin.setting.changed".
+	AuditEntryActionAdminSettingChanged AuditEntryAction = "admin.setting.changed"
+	// AuditEntryActionAdminLogsPurged is the value "admin.logs.purged".
+	AuditEntryActionAdminLogsPurged AuditEntryAction = "admin.logs.purged"
 	// AuditEntryActionAdminDialogPdViewed is the value "admin.dialog.pd_viewed".
 	AuditEntryActionAdminDialogPdViewed AuditEntryAction = "admin.dialog.pd_viewed"
+	// AuditEntryActionAdminDialogLabelSet is the value "admin.dialog.label_set".
+	AuditEntryActionAdminDialogLabelSet AuditEntryAction = "admin.dialog.label_set"
+	// AuditEntryActionAdminDialogLabelRemoved is the value "admin.dialog.label_removed".
+	AuditEntryActionAdminDialogLabelRemoved AuditEntryAction = "admin.dialog.label_removed"
+	// AuditEntryActionAdminJournalPdViewed is the value "admin.journal.pd_viewed".
+	AuditEntryActionAdminJournalPdViewed AuditEntryAction = "admin.journal.pd_viewed"
+	// AuditEntryActionAdminCompanyPdViewed is the value "admin.company.pd_viewed".
+	AuditEntryActionAdminCompanyPdViewed AuditEntryAction = "admin.company.pd_viewed"
+	// AuditEntryActionAdminCompanyPdSearched is the value "admin.company.pd_searched".
+	AuditEntryActionAdminCompanyPdSearched AuditEntryAction = "admin.company.pd_searched"
+	// AuditEntryActionAdminPaymentPdViewed is the value "admin.payment.pd_viewed".
+	AuditEntryActionAdminPaymentPdViewed AuditEntryAction = "admin.payment.pd_viewed"
+	// AuditEntryActionSitePostPublished is the value "site.post_published".
+	AuditEntryActionSitePostPublished AuditEntryAction = "site.post_published"
+	// AuditEntryActionSitePostUnpublished is the value "site.post_unpublished".
+	AuditEntryActionSitePostUnpublished AuditEntryAction = "site.post_unpublished"
+	// AuditEntryActionSitePostDeleted is the value "site.post_deleted".
+	AuditEntryActionSitePostDeleted AuditEntryAction = "site.post_deleted"
+	// AuditEntryActionSiteLegalPublished is the value "site.legal_published".
+	AuditEntryActionSiteLegalPublished AuditEntryAction = "site.legal_published"
+	// AuditEntryActionSiteTrackersSaved is the value "site.trackers_saved".
+	AuditEntryActionSiteTrackersSaved AuditEntryAction = "site.trackers_saved"
 	// AuditEntryActionCanaryTriggered is the value "canary.triggered".
 	AuditEntryActionCanaryTriggered AuditEntryAction = "canary.triggered"
 	// AuditEntryActionBillingPaymentNew is the value "billing.payment.new".
@@ -1959,6 +2053,65 @@ const (
 	AuditEntryActorTypeAPIKey AuditEntryActorType = "api_key"
 	// AuditEntryActorTypeSystem is the value "system".
 	AuditEntryActorTypeSystem AuditEntryActorType = "system"
+)
+
+// AuditEntryObject: Над чем сделано — с названием, чтобы не показывать безликое «Организация»: в отличие от target, у действий с вебхуком это сам адрес вебхука, у платежа есть сумма и назначение. null — без отдельного объекта. По ключу API …
+type AuditEntryObject struct {
+	// Только у платежа: сумма в тиынах; у остальных — null
+	AmountTiyn *int64 `json:"amount_tiyn"`
+	// id объекта: публичный с меткой (pay_…, key_…, co_…), если у вида она есть; у вебхука — id адреса (ep_…)
+	ID *string `json:"id"`
+	// Название для показа: у вебхука — описание, а без него адрес; у ключа, компании, группы и своей роли — название; у человека — имя. null — названия нет (платёж показывайте суммой и назначением, организацию — своим словом) …
+	Name *string `json:"name"`
+	// Только у платежа: назначение — subscription (подписка), seats (места), extra_usage (доп. использование), platform_topup (пополнение платформы), onboarding (подключение компании), card_verification (проверка карты), one_o…
+	Purpose *AuditEntryObjectPurpose `json:"purpose"`
+	// Вид объекта: webhook — адрес вебхука, payment — платёж, api_key, company, user, group, custom_role, invitation, workspace и другие виды из target.type
+	Type string `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *AuditEntryObject) UnmarshalJSON(data []byte) error {
+	type plain AuditEntryObject
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v AuditEntryObject) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v AuditEntryObject) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "amount_tiyn", "id", "name", "purpose", "type")
+}
+
+// AuditEntryObjectPurpose: Только у платежа: назначение — subscription (подписка), seats (места), extra_usage (доп. использование), platform_topup (пополнение платформы), onboarding (подключение компании), card_verification (проверка карты), one_o…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type AuditEntryObjectPurpose string
+
+// Known values of AuditEntryObjectPurpose.
+const (
+	// AuditEntryObjectPurposeSubscription is the value "subscription".
+	AuditEntryObjectPurposeSubscription AuditEntryObjectPurpose = "subscription"
+	// AuditEntryObjectPurposeOneOff is the value "one_off".
+	AuditEntryObjectPurposeOneOff AuditEntryObjectPurpose = "one_off"
+	// AuditEntryObjectPurposeOnboarding is the value "onboarding".
+	AuditEntryObjectPurposeOnboarding AuditEntryObjectPurpose = "onboarding"
+	// AuditEntryObjectPurposeExtraUsage is the value "extra_usage".
+	AuditEntryObjectPurposeExtraUsage AuditEntryObjectPurpose = "extra_usage"
+	// AuditEntryObjectPurposePlatformTopup is the value "platform_topup".
+	AuditEntryObjectPurposePlatformTopup AuditEntryObjectPurpose = "platform_topup"
+	// AuditEntryObjectPurposeSeats is the value "seats".
+	AuditEntryObjectPurposeSeats AuditEntryObjectPurpose = "seats"
+	// AuditEntryObjectPurposeManual is the value "manual".
+	AuditEntryObjectPurposeManual AuditEntryObjectPurpose = "manual"
+	// AuditEntryObjectPurposeCardVerification is the value "card_verification".
+	AuditEntryObjectPurposeCardVerification AuditEntryObjectPurpose = "card_verification"
 )
 
 // AuditEntryTarget: Над чем сделано; null — без отдельного объекта
@@ -6194,6 +6347,90 @@ func (v BatchRowQuestionOptionItem) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "description", "label")
 }
 
+// BatchStatement: Данные файла выписки, по которому шло задание: счёт, банк, период, остатки. Полный номер счёта ядро не хранит
+type BatchStatement struct {
+	// Счета выписки (обычно один)
+	Accounts []BatchStatementAccount `json:"accounts"`
+	// Остаток сходится по всем счетам файла; false — хотя бы по одному не сходится; null — хотя бы по одному проверить нельзя
+	Balanced *bool `json:"balanced"`
+	// Начало периода выписки (ГГГГ-ММ-ДД); null — в файле нет
+	PeriodFrom *string `json:"period_from"`
+	// Конец периода выписки (ГГГГ-ММ-ДД); null — в файле нет
+	PeriodTo *string `json:"period_to"`
+	// «Отправитель» из заголовка файла — банк или программа, сформировавшие выписку; null — не указан
+	Sender *string `json:"sender"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *BatchStatement) UnmarshalJSON(data []byte) error {
+	type plain BatchStatement
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v BatchStatement) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v BatchStatement) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "accounts", "balanced", "period_from", "period_to", "sender")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v BatchStatement) MarshalJSON() ([]byte, error) {
+	type plain BatchStatement
+	p := plain(v)
+	if p.Accounts == nil {
+		p.Accounts = []BatchStatementAccount{}
+	}
+	return json.Marshal(p)
+}
+
+// BatchStatementAccount: Счёт выписки: остатки и обороты
+type BatchStatementAccount struct {
+	// Номер счёта со скрытой серединой: первые 4 и последние 4 знака
+	Account string `json:"account"`
+	// Остаток сходится: входящий остаток + поступило − списано = исходящий остаток (до тиына). null — проверить нельзя: в файле нет остатков или есть операции не по счетам выписки
+	Balanced *bool `json:"balanced"`
+	// Банк счёта — из реквизитов операций файла; null — банк в файле не назван (тогда показать sender выписки)
+	Bank *string `json:"bank"`
+	// БИК банка счёта; null — в файле его нет
+	BankBic *string `json:"bank_bic"`
+	// Исходящий остаток на конец периода; null — в файле его нет
+	ClosingBalance *Money `json:"closing_balance"`
+	// Incoming is the "incoming" property.
+	Incoming Money `json:"incoming"`
+	// Входящий остаток на начало периода; null — в файле его нет
+	OpeningBalance *Money `json:"opening_balance"`
+	// Outgoing is the "outgoing" property.
+	Outgoing Money `json:"outgoing"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *BatchStatementAccount) UnmarshalJSON(data []byte) error {
+	type plain BatchStatementAccount
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v BatchStatementAccount) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v BatchStatementAccount) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "account", "balanced", "bank", "bank_bic", "closing_balance", "incoming", "opening_balance", "outgoing")
+}
+
 // BatchStopResult: Итог «Остановить»
 type BatchStopResult struct {
 	// Номер задания
@@ -6242,6 +6479,8 @@ type BatchSummary struct {
 	Reason *string `json:"reason,omitempty"`
 	// true — задание ещё идёт: кнопка «Одобрить» выключена
 	Running bool `json:"running"`
+	// Данные файла выписки (счёт, банк, период, остатки); null — задание не по файлу выписки (ЭСФ, DirectBank, одобрение) или заведено до появления поля
+	Statement *BatchStatement `json:"statement"`
 	// Название задания
 	Title string `json:"title"`
 	// Totals is the "totals" property.
@@ -6265,7 +6504,7 @@ func (v BatchSummary) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v BatchSummary) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "approve", "can_approve", "finished_at", "job_id", "kind", "manual_rows", "proposals", "reason", "running", "title", "totals")
+	return extraFields(v.raw, "approve", "can_approve", "finished_at", "job_id", "kind", "manual_rows", "proposals", "reason", "running", "statement", "title", "totals")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -6508,6 +6747,8 @@ type CardSession struct {
 	PaymentObject map[string]any `json:"payment_object"`
 	// Адрес скрипта платёжной формы ePay: подключить его на странице (тег script) перед открытием формы
 	ScriptURL string `json:"script_url"`
+	// true — тестовый терминал ePay: настоящие деньги не списываются, платят тестовыми картами. Показать на форме пометку «тестовая оплата»
+	TestMode bool `json:"test_mode"`
 
 	raw json.RawMessage
 }
@@ -6527,7 +6768,7 @@ func (v CardSession) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v CardSession) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "payment_id", "payment_object", "script_url")
+	return extraFields(v.raw, "payment_id", "payment_object", "script_url", "test_mode")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -6539,6 +6780,66 @@ func (v CardSession) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(p)
 }
+
+// CardSessionState: Итог привязки карты после возврата с формы банка.
+type CardSessionState struct {
+	// Почему карта не привязалась (только при status = failed, иначе null): card_taken — эта карта уже привязана другим человеком, предложить другую; abandoned — форму банка не открыли или закрыли, банк о заказе не узнал; decl…
+	FailureCode *CardSessionStateFailureCode `json:"failure_code"`
+	// Служебный платёж проверки карты — тот же, что в ответе POST …/card-sessions (pay_…)
+	PaymentID string `json:"payment_id"`
+	// Итог привязки: pending — ждём ответа банка (спросить ещё раз позже); verified — карта привязана и уже в списке карт; failed — не привязана, причина в failure_code
+	Status CardSessionStateStatus `json:"status"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *CardSessionState) UnmarshalJSON(data []byte) error {
+	type plain CardSessionState
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v CardSessionState) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v CardSessionState) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "failure_code", "payment_id", "status")
+}
+
+// CardSessionStateFailureCode: Почему карта не привязалась (только при status = failed, иначе null): card_taken — эта карта уже привязана другим человеком, предложить другую; abandoned — форму банка не открыли или закрыли, банк о заказе не узнал; decl…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type CardSessionStateFailureCode string
+
+// Known values of CardSessionStateFailureCode.
+const (
+	// CardSessionStateFailureCodeCardTaken is the value "card_taken".
+	CardSessionStateFailureCodeCardTaken CardSessionStateFailureCode = "card_taken"
+	// CardSessionStateFailureCodeAbandoned is the value "abandoned".
+	CardSessionStateFailureCodeAbandoned CardSessionStateFailureCode = "abandoned"
+	// CardSessionStateFailureCodeDeclined is the value "declined".
+	CardSessionStateFailureCodeDeclined CardSessionStateFailureCode = "declined"
+)
+
+// CardSessionStateStatus: Итог привязки: pending — ждём ответа банка (спросить ещё раз позже); verified — карта привязана и уже в списке карт; failed — не привязана, причина в failure_code
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type CardSessionStateStatus string
+
+// Known values of CardSessionStateStatus.
+const (
+	// CardSessionStateStatusPending is the value "pending".
+	CardSessionStateStatusPending CardSessionStateStatus = "pending"
+	// CardSessionStateStatusVerified is the value "verified".
+	CardSessionStateStatusVerified CardSessionStateStatus = "verified"
+	// CardSessionStateStatusFailed is the value "failed".
+	CardSessionStateStatusFailed CardSessionStateStatus = "failed"
+)
 
 // ChatAnswerRequest: Ответ на уточняющий вопрос ИИ
 type ChatAnswerRequest struct {
@@ -6588,8 +6889,12 @@ type ChatAssistantMessage struct {
 	Blocks []ChatHistoryBlock `json:"blocks"`
 	// Источники ответа
 	Citations []ChatCitation `json:"citations"`
+	// Вопросы-продолжения под ответом, до 3, на языке разговора: нажатие — обычный новый вопрос с этим текстом. Пусто — предложить нечего
+	Followups []string `json:"followups"`
 	// Устойчивый id сообщения: <dialog_id>:<номер хода>:a
 	ID string `json:"id"`
+	// Предложенное следующее действие; null — нет
+	NextAction *ChatNextAction `json:"next_action"`
 	// Номера предложений этого хода — то же, что proposal-блоки, списком
 	ProposalIDs []string `json:"proposal_ids"`
 	// Ответ ИИ
@@ -6619,7 +6924,7 @@ func (v ChatAssistantMessage) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatAssistantMessage) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "at", "blocks", "citations", "id", "proposal_ids", "role", "state", "thinking")
+	return extraFields(v.raw, "at", "blocks", "citations", "followups", "id", "next_action", "proposal_ids", "role", "state", "thinking")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -6631,6 +6936,9 @@ func (v ChatAssistantMessage) MarshalJSON() ([]byte, error) {
 	}
 	if p.Citations == nil {
 		p.Citations = []ChatCitation{}
+	}
+	if p.Followups == nil {
+		p.Followups = []string{}
 	}
 	if p.ProposalIDs == nil {
 		p.ProposalIDs = []string{}
@@ -6718,10 +7026,12 @@ func (v ChatAttachmentMeta) ExtraFields() map[string]json.RawMessage {
 
 // ChatChoiceAnswer: Ответ на один вопрос из события choice
 type ChatChoiceAnswer struct {
-	// Свой ответ текстом (вариант «свой ответ»). Нужен selected или other — хотя бы одно
+	// Свой ответ текстом (вариант «свой ответ»). Нужен selected или other — хотя бы одно (или skipped)
 	Other *string `json:"other,omitempty"`
 	// Выбранные варианты — их label из options, в любом порядке; без повторов. В вопросе без multi_select — не больше одного
 	Selected []string `json:"selected,omitzero"`
+	// true — «Пропустить»: вопрос оставлен без ответа, selected и other не передавать. ИИ узнаёт, что вопрос пропущен, и продолжает без этого ответа. У вопроса-подтверждения действия пропуск равен отказу: действие не выполняет…
+	Skipped *bool `json:"skipped,omitempty"`
 
 	raw json.RawMessage
 }
@@ -6741,7 +7051,7 @@ func (v ChatChoiceAnswer) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatChoiceAnswer) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "other", "selected")
+	return extraFields(v.raw, "other", "selected", "skipped")
 }
 
 // ChatChoiceOption: Вариант ответа
@@ -6774,8 +7084,10 @@ func (v ChatChoiceOption) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "description", "label", "ref")
 }
 
-// ChatChoiceQuestion: Уточняющий вопрос ИИ с вариантами. Вариант «свой ответ» есть всегда и в options не входит
+// ChatChoiceQuestion: Вопрос с вариантами: уточняющий вопрос ИИ или подтверждение действия (confirm). Вариант «свой ответ» есть всегда и в options не входит
 type ChatChoiceQuestion struct {
+	// true — это не уточнение, а подтверждение действия: вопрос задала программа, действие выполнится только по кнопке согласия (первый вариант). Пропуск, свой текст и закрытие — отказ: кнопку «Пропустить» не показывать. false…
+	Confirm bool `json:"confirm"`
 	// Короткая подпись вопроса, до ~12 символов (для вкладки или чипа)
 	Header string `json:"header"`
 	// true — можно выбрать несколько вариантов (чекбоксы); false — один (радиокнопки)
@@ -6803,7 +7115,7 @@ func (v ChatChoiceQuestion) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatChoiceQuestion) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "header", "multi_select", "options", "question")
+	return extraFields(v.raw, "confirm", "header", "multi_select", "options", "question")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -6868,8 +7180,10 @@ type ChatDialog struct {
 	PdRestored bool `json:"pd_restored"`
 	// true — идёт ход: дочитать его потоком GET …/chat/{id}/events?turn=<turn>
 	Running bool `json:"running"`
-	// Заголовок — первый вопрос одной строкой
+	// Название одной строкой: человека, иначе от ИИ, иначе первый вопрос. Откуда оно — title_source
 	Title string `json:"title"`
+	// TitleSource is the "title_source" property.
+	TitleSource ChatTitleSource `json:"title_source"`
 	// Номер текущего хода (если идёт) или число законченных ходов
 	Turn float64 `json:"turn"`
 	// Последнее изменение, ISO 8601 UTC
@@ -6893,7 +7207,7 @@ func (v ChatDialog) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatDialog) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "awaiting", "closed", "created_at", "id", "masked", "message_count", "messages", "pd_restored", "running", "title", "turn", "updated_at")
+	return extraFields(v.raw, "awaiting", "closed", "created_at", "id", "masked", "message_count", "messages", "pd_restored", "running", "title", "title_source", "turn", "updated_at")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -7046,7 +7360,7 @@ func (v *ChatDialogList) Next(ctx context.Context) (*ChatDialogList, error) {
 
 // ChatDialogPatch: Новое название разговора
 type ChatDialogPatch struct {
-	// Новое название, до 64 символов; пустая строка — вернуть заголовок по первому вопросу
+	// Новое название, до 64 символов; пустая строка — вернуть автоматическое название (от ИИ, а пока его нет — первый вопрос)
 	Title string `json:"title"`
 
 	raw json.RawMessage
@@ -7076,6 +7390,8 @@ type ChatDialogRenamed struct {
 	ID string `json:"id"`
 	// Название разговора теперь
 	Title string `json:"title"`
+	// TitleSource is the "title_source" property.
+	TitleSource ChatTitleSource `json:"title_source"`
 
 	raw json.RawMessage
 }
@@ -7095,7 +7411,7 @@ func (v ChatDialogRenamed) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatDialogRenamed) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "id", "title")
+	return extraFields(v.raw, "id", "title", "title_source")
 }
 
 // ChatDialogSummary: Разговор в списке
@@ -7106,8 +7422,10 @@ type ChatDialogSummary struct {
 	MessageCount float64 `json:"message_count"`
 	// true — ИИ сейчас отвечает: показать индикатор
 	Running bool `json:"running"`
-	// Заголовок — первый вопрос одной строкой (до 64 знаков, длиннее — с «…»); вопрос из одних файлов — их имена
+	// Название одной строкой (до 64 знаков, длиннее — с «…»): человека, иначе от ИИ, иначе первый вопрос (вопрос из одних файлов — их имена). Откуда оно — title_source
 	Title string `json:"title"`
+	// TitleSource is the "title_source" property.
+	TitleSource ChatTitleSource `json:"title_source"`
 	// Последнее изменение (у идущего хода — его начало), ISO 8601 UTC
 	UpdatedAt string `json:"updated_at"`
 
@@ -7129,7 +7447,7 @@ func (v ChatDialogSummary) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatDialogSummary) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "id", "message_count", "running", "title", "updated_at")
+	return extraFields(v.raw, "id", "message_count", "running", "title", "title_source", "updated_at")
 }
 
 // ChatEvent: Одно событие потока: `id: <номер>`, `event: <type>`, `data: <JSON этого вида>`. Ещё бывает `event: ping` с пустым data — пульс, его пропускайте. Переподключение — GET …/chat/{id}/events с Last-Event-ID.
@@ -7147,7 +7465,9 @@ func (v ChatDialogSummary) ExtraFields() map[string]json.RawMessage {
 //   - "error": *ChatEventError
 //   - "batch": *ChatEventBatch
 //   - "batch_report": *ChatEventBatchReport
+//   - "next": *ChatEventNext
 //   - "done": *ChatEventDone
+//   - "title": *ChatEventTitle
 //
 // A tag this SDK version does not know decodes into *UnknownVariant, which keeps the raw JSON.
 // Use a type switch on Value to handle the variants.
@@ -7173,7 +7493,9 @@ func (*ChatEventChoice) isChatEvent()      {}
 func (*ChatEventError) isChatEvent()       {}
 func (*ChatEventBatch) isChatEvent()       {}
 func (*ChatEventBatchReport) isChatEvent() {}
+func (*ChatEventNext) isChatEvent()        {}
 func (*ChatEventDone) isChatEvent()        {}
+func (*ChatEventTitle) isChatEvent()       {}
 func (*UnknownVariant) isChatEvent()       {}
 
 // IsZero reports whether the union holds no variant (it is then omitted from or encoded as null in JSON).
@@ -7278,8 +7600,20 @@ func (u *ChatEvent) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		u.Value = v
+	case "next":
+		v := new(ChatEventNext)
+		if err := json.Unmarshal(data, v); err != nil {
+			return err
+		}
+		u.Value = v
 	case "done":
 		v := new(ChatEventDone)
+		if err := json.Unmarshal(data, v); err != nil {
+			return err
+		}
+		u.Value = v
+	case "title":
+		v := new(ChatEventTitle)
 		if err := json.Unmarshal(data, v); err != nil {
 			return err
 		}
@@ -7507,7 +7841,7 @@ func (v ChatEventCitation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// ChatEventDone: Конец хода — приходит после записи хода в историю. Дальше событий не будет
+// ChatEventDone: Конец хода — приходит после записи хода в историю. Дальше событий хода не будет; в первом ходе разговора за ним может прийти одно title
 type ChatEventDone struct {
 	// Итоговый ответ хода целиком (Markdown): заменить им собранный из text
 	Answer *string `json:"answer,omitempty"`
@@ -7593,6 +7927,51 @@ func (v ChatEventError) MarshalJSON() ([]byte, error) {
 	p := plain(v)
 	if p.Type == "" {
 		p.Type = "error"
+	}
+	return json.Marshal(p)
+}
+
+// ChatEventNext: Что дальше — под законченным ответом, перед done, не чаще раза за ход: вопросы-продолжения и предложенное действие. Нажатие — обычный новый вопрос; сам ИИ ничего не запускает
+type ChatEventNext struct {
+	// Предложенное следующее действие; null — нет
+	Action *ChatNextAction `json:"action"`
+	// Вопросы-продолжения под ответом, до 3, на языке разговора: нажатие — обычный новый вопрос с этим текстом. Пусто — предложить нечего
+	Followups []string `json:"followups"`
+	// Вид события: next
+	//
+	// Always "next"; filled in automatically when the value is encoded.
+	Type string `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatEventNext) UnmarshalJSON(data []byte) error {
+	type plain ChatEventNext
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatEventNext) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatEventNext) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "action", "followups", "type")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatEventNext) MarshalJSON() ([]byte, error) {
+	type plain ChatEventNext
+	p := plain(v)
+	if p.Followups == nil {
+		p.Followups = []string{}
+	}
+	if p.Type == "" {
+		p.Type = "next"
 	}
 	return json.Marshal(p)
 }
@@ -7862,6 +8241,46 @@ func (v ChatEventThinking) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+// ChatEventTitle: ИИ придумал название разговора — заменить им название в списке разговоров и в шапке (title_source станет ai). Раз за разговор, только кабинету (не ключу API), в потоке первого ответа ПОСЛЕ done: ход уже закончен и новый …
+type ChatEventTitle struct {
+	// Название разговора, до 64 знаков
+	Title string `json:"title"`
+	// Вид события: title
+	//
+	// Always "title"; filled in automatically when the value is encoded.
+	Type string `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatEventTitle) UnmarshalJSON(data []byte) error {
+	type plain ChatEventTitle
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatEventTitle) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatEventTitle) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "title", "type")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatEventTitle) MarshalJSON() ([]byte, error) {
+	type plain ChatEventTitle
+	p := plain(v)
+	if p.Type == "" {
+		p.Type = "title"
+	}
+	return json.Marshal(p)
+}
+
 // ChatEventTool: Шаг ИИ: вызов инструмента (поиск в 1С, расчёт) начат, закончен или с ошибкой
 type ChatEventTool struct {
 	// Подробности шага или текст ошибки
@@ -7923,12 +8342,53 @@ const (
 	ChatEventToolStatusError ChatEventToolStatus = "error"
 )
 
-// ChatHistoryBlock: Блок ответа в истории — те же виды, что клиент собирает из живого потока: text | tool | proposal | question | error
+// ChatHistoryBatch: Пачка, собранная ходом (разбор выписки, входящие ЭСФ), — то же, что событие batch_report в потоке: карточку результата взять свежей — GET …/batch/{job_id}/summary
+type ChatHistoryBatch struct {
+	// id задания пачки (bat_…)
+	JobID string `json:"job_id"`
+	// Пачка документов
+	//
+	// Always "batch"; filled in automatically when the value is encoded.
+	Kind string `json:"kind"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatHistoryBatch) UnmarshalJSON(data []byte) error {
+	type plain ChatHistoryBatch
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatHistoryBatch) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatHistoryBatch) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "job_id", "kind")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatHistoryBatch) MarshalJSON() ([]byte, error) {
+	type plain ChatHistoryBatch
+	p := plain(v)
+	if p.Kind == "" {
+		p.Kind = "batch"
+	}
+	return json.Marshal(p)
+}
+
+// ChatHistoryBlock: Блок ответа в истории — те же виды, что клиент собирает из живого потока: text | tool | proposal | batch | question | error
 //
 // It is a union discriminated by the "kind" property. Value holds a pointer to one of the variants:
 //   - "text": *ChatHistoryText
 //   - "tool": *ChatHistoryTool
 //   - "proposal": *ChatHistoryProposal
+//   - "batch": *ChatHistoryBatch
 //   - "question": *ChatHistoryQuestion
 //   - "error": *ChatHistoryError
 //
@@ -7947,6 +8407,7 @@ type ChatHistoryBlockVariant interface {
 func (*ChatHistoryText) isChatHistoryBlock()     {}
 func (*ChatHistoryTool) isChatHistoryBlock()     {}
 func (*ChatHistoryProposal) isChatHistoryBlock() {}
+func (*ChatHistoryBatch) isChatHistoryBlock()    {}
 func (*ChatHistoryQuestion) isChatHistoryBlock() {}
 func (*ChatHistoryError) isChatHistoryBlock()    {}
 func (*UnknownVariant) isChatHistoryBlock()      {}
@@ -7999,6 +8460,12 @@ func (u *ChatHistoryBlock) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		u.Value = v
+	case "batch":
+		v := new(ChatHistoryBatch)
+		if err := json.Unmarshal(data, v); err != nil {
+			return err
+		}
+		u.Value = v
 	case "question":
 		v := new(ChatHistoryQuestion)
 		if err := json.Unmarshal(data, v); err != nil {
@@ -8019,7 +8486,7 @@ func (u *ChatHistoryBlock) UnmarshalJSON(data []byte) error {
 
 // ChatHistoryError: Ошибка хода
 type ChatHistoryError struct {
-	// Причина: - `budget` — кончился лимит (дня или разговора) - `rate_limited` — сервис модели перегружен — повторите - `api` — сбой сервиса модели - `refusal` — модель отказалась отвечать - `context_overflow` — разговор слиш…
+	// Причина: - `budget` — кончился лимит (дня или разговора) - `parallel_turns_limit` — у человека уже идёт предельное число ходов ИИ (тариф без доп. использования) — дождаться ответа на предыдущие вопросы - `rate_limited` —…
 	Code *ChatHistoryErrorCode `json:"code,omitempty"`
 	// Ошибка хода
 	//
@@ -8059,7 +8526,7 @@ func (v ChatHistoryError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// ChatHistoryErrorCode: Причина: - `budget` — кончился лимит (дня или разговора) - `rate_limited` — сервис модели перегружен — повторите - `api` — сбой сервиса модели - `refusal` — модель отказалась отвечать - `context_overflow` — разговор слиш…
+// ChatHistoryErrorCode: Причина: - `budget` — кончился лимит (дня или разговора) - `parallel_turns_limit` — у человека уже идёт предельное число ходов ИИ (тариф без доп. использования) — дождаться ответа на предыдущие вопросы - `rate_limited` —…
 //
 // The set is open: a value this SDK version does not know is kept as it was received.
 type ChatHistoryErrorCode string
@@ -8068,6 +8535,8 @@ type ChatHistoryErrorCode string
 const (
 	// ChatHistoryErrorCodeBudget is the value "budget".
 	ChatHistoryErrorCodeBudget ChatHistoryErrorCode = "budget"
+	// ChatHistoryErrorCodeParallelTurnsLimit is the value "parallel_turns_limit".
+	ChatHistoryErrorCodeParallelTurnsLimit ChatHistoryErrorCode = "parallel_turns_limit"
 	// ChatHistoryErrorCodeRateLimited is the value "rate_limited".
 	ChatHistoryErrorCodeRateLimited ChatHistoryErrorCode = "rate_limited"
 	// ChatHistoryErrorCodeAPI is the value "api".
@@ -8096,6 +8565,51 @@ const (
 	ChatHistoryErrorCodeBatchFailed ChatHistoryErrorCode = "batch_failed"
 	// ChatHistoryErrorCodeBatchAbandoned is the value "batch_abandoned".
 	ChatHistoryErrorCodeBatchAbandoned ChatHistoryErrorCode = "batch_abandoned"
+)
+
+// ChatHistoryMention: Упоминание через «@» в вопросе из истории: вид, id и название для чипа
+type ChatHistoryMention struct {
+	// id упомянутого — как его отдал GET …/chat/mentions
+	ID string `json:"id"`
+	// Название упомянутого на момент отправки вопроса — то же, что title в GET …/chat/mentions (документ и номер, имя контрагента, название задания). Сохраняется с вопросом: при чтении истории 1С не спрашивают, позднее переиме…
+	Title *string `json:"title"`
+	// Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+	Type ChatHistoryMentionType `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatHistoryMention) UnmarshalJSON(data []byte) error {
+	type plain ChatHistoryMention
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatHistoryMention) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatHistoryMention) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "id", "title", "type")
+}
+
+// ChatHistoryMentionType: Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatHistoryMentionType string
+
+// Known values of ChatHistoryMentionType.
+const (
+	// ChatHistoryMentionTypeProposal is the value "proposal".
+	ChatHistoryMentionTypeProposal ChatHistoryMentionType = "proposal"
+	// ChatHistoryMentionTypeCounterparty is the value "counterparty".
+	ChatHistoryMentionTypeCounterparty ChatHistoryMentionType = "counterparty"
+	// ChatHistoryMentionTypeBatch is the value "batch".
+	ChatHistoryMentionTypeBatch ChatHistoryMentionType = "batch"
 )
 
 // ChatHistoryProposal: Подготовленный документ: карточку взять свежей — GET …/proposals/{proposal_id}
@@ -8138,8 +8652,10 @@ func (v ChatHistoryProposal) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// ChatHistoryQuestion: Вопрос ИИ к человеку
+// ChatHistoryQuestion: Вопрос ИИ к человеку. Уточнение, которое ещё ждёт ответа, сюда не попадает — оно приходит только полем awaiting разговора, чтобы экран не показал его дважды
 type ChatHistoryQuestion struct {
+	// Answer is the "answer" property.
+	Answer *ChatHistoryQuestionAnswer `json:"answer,omitempty"`
 	// Вопрос ИИ
 	//
 	// Always "question"; filled in automatically when the value is encoded.
@@ -8167,7 +8683,7 @@ func (v ChatHistoryQuestion) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatHistoryQuestion) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "kind", "proposal_id", "text")
+	return extraFields(v.raw, "answer", "kind", "proposal_id", "text")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -8179,6 +8695,61 @@ func (v ChatHistoryQuestion) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(p)
 }
+
+// ChatHistoryQuestionAnswer: Что человек ответил на уточняющий вопрос. Нет поля — ответа не было (вопрос закрыт) или это вопрос по документу
+type ChatHistoryQuestionAnswer struct {
+	// Свой ответ; у ответа сообщением — его текст (один на все вопросы этого уточнения)
+	Other *string `json:"other,omitempty"`
+	// Выбранные варианты (их подписи); у ответа сообщением — пусто
+	Selected []string `json:"selected"`
+	// true — человек пропустил этот вопрос в форме, не отвечая (selected пуст, other нет)
+	Skipped *bool `json:"skipped,omitempty"`
+	// choice — ответил в форме выбора; message — написал сообщением вместо формы
+	Via ChatHistoryQuestionAnswerVia `json:"via"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatHistoryQuestionAnswer) UnmarshalJSON(data []byte) error {
+	type plain ChatHistoryQuestionAnswer
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatHistoryQuestionAnswer) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatHistoryQuestionAnswer) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "other", "selected", "skipped", "via")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatHistoryQuestionAnswer) MarshalJSON() ([]byte, error) {
+	type plain ChatHistoryQuestionAnswer
+	p := plain(v)
+	if p.Selected == nil {
+		p.Selected = []string{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatHistoryQuestionAnswerVia: choice — ответил в форме выбора; message — написал сообщением вместо формы
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatHistoryQuestionAnswerVia string
+
+// Known values of ChatHistoryQuestionAnswerVia.
+const (
+	// ChatHistoryQuestionAnswerViaChoice is the value "choice".
+	ChatHistoryQuestionAnswerViaChoice ChatHistoryQuestionAnswerVia = "choice"
+	// ChatHistoryQuestionAnswerViaMessage is the value "message".
+	ChatHistoryQuestionAnswerViaMessage ChatHistoryQuestionAnswerVia = "message"
+)
 
 // ChatHistoryText: Кусок ответа текстом
 type ChatHistoryText struct {
@@ -8279,6 +8850,195 @@ const (
 	ChatHistoryToolStatusError ChatHistoryToolStatus = "error"
 )
 
+// ChatMention: Упоминание через «@» в вопросе: вид и id
+type ChatMention struct {
+	// id упомянутого — как его отдал GET …/chat/mentions
+	ID string `json:"id"`
+	// Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+	Type ChatMentionType `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMention) UnmarshalJSON(data []byte) error {
+	type plain ChatMention
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMention) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMention) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "id", "type")
+}
+
+// ChatMentionItem: То, что можно упомянуть через «@»
+type ChatMentionItem struct {
+	// Вторая строка: сумма документа, БИН контрагента, дата задания; null — нечего добавить
+	Hint *string `json:"hint"`
+	// id для поля mentions вопроса
+	ID string `json:"id"`
+	// Как показать в списке и в поле ввода: название документа с номером, имя контрагента, название задания (данные компании)
+	Title string `json:"title"`
+	// Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+	Type ChatMentionItemType `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMentionItem) UnmarshalJSON(data []byte) error {
+	type plain ChatMentionItem
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMentionItem) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMentionItem) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "hint", "id", "title", "type")
+}
+
+// ChatMentionItemType: Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMentionItemType string
+
+// Known values of ChatMentionItemType.
+const (
+	// ChatMentionItemTypeProposal is the value "proposal".
+	ChatMentionItemTypeProposal ChatMentionItemType = "proposal"
+	// ChatMentionItemTypeCounterparty is the value "counterparty".
+	ChatMentionItemTypeCounterparty ChatMentionItemType = "counterparty"
+	// ChatMentionItemTypeBatch is the value "batch".
+	ChatMentionItemTypeBatch ChatMentionItemType = "batch"
+)
+
+// ChatMentionSearch: Что можно упомянуть через «@»
+type ChatMentionSearch struct {
+	// Найденное, по видам в порядке запроса; внутри вида — свежие сверху
+	Data []ChatMentionItem `json:"data"`
+	// Виды, по которым поиск сейчас невозможен, и почему: кабинет прячет раздел или показывает причину
+	Unavailable []ChatMentionUnavailable `json:"unavailable"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMentionSearch) UnmarshalJSON(data []byte) error {
+	type plain ChatMentionSearch
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMentionSearch) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMentionSearch) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "data", "unavailable")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatMentionSearch) MarshalJSON() ([]byte, error) {
+	type plain ChatMentionSearch
+	p := plain(v)
+	if p.Data == nil {
+		p.Data = []ChatMentionItem{}
+	}
+	if p.Unavailable == nil {
+		p.Unavailable = []ChatMentionUnavailable{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatMentionType: Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMentionType string
+
+// Known values of ChatMentionType.
+const (
+	// ChatMentionTypeProposal is the value "proposal".
+	ChatMentionTypeProposal ChatMentionType = "proposal"
+	// ChatMentionTypeCounterparty is the value "counterparty".
+	ChatMentionTypeCounterparty ChatMentionType = "counterparty"
+	// ChatMentionTypeBatch is the value "batch".
+	ChatMentionTypeBatch ChatMentionType = "batch"
+)
+
+// ChatMentionUnavailable: Вид упоминаний, который сейчас не найти
+type ChatMentionUnavailable struct {
+	// `no_access` — нет права видеть документы компании; `onec_not_linked` — 1С не подключена; `onec_unavailable` — 1С сейчас не ответила
+	Reason ChatMentionUnavailableReason `json:"reason"`
+	// Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+	Type ChatMentionUnavailableType `json:"type"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMentionUnavailable) UnmarshalJSON(data []byte) error {
+	type plain ChatMentionUnavailable
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMentionUnavailable) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMentionUnavailable) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "reason", "type")
+}
+
+// ChatMentionUnavailableReason: `no_access` — нет права видеть документы компании; `onec_not_linked` — 1С не подключена; `onec_unavailable` — 1С сейчас не ответила
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMentionUnavailableReason string
+
+// Known values of ChatMentionUnavailableReason.
+const (
+	// ChatMentionUnavailableReasonNoAccess is the value "no_access".
+	ChatMentionUnavailableReasonNoAccess ChatMentionUnavailableReason = "no_access"
+	// ChatMentionUnavailableReasonOneCNotLinked is the value "onec_not_linked".
+	ChatMentionUnavailableReasonOneCNotLinked ChatMentionUnavailableReason = "onec_not_linked"
+	// ChatMentionUnavailableReasonOneCUnavailable is the value "onec_unavailable".
+	ChatMentionUnavailableReasonOneCUnavailable ChatMentionUnavailableReason = "onec_unavailable"
+)
+
+// ChatMentionUnavailableType: Что упомянуто: `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, входящие ЭСФ), id — bat_…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMentionUnavailableType string
+
+// Known values of ChatMentionUnavailableType.
+const (
+	// ChatMentionUnavailableTypeProposal is the value "proposal".
+	ChatMentionUnavailableTypeProposal ChatMentionUnavailableType = "proposal"
+	// ChatMentionUnavailableTypeCounterparty is the value "counterparty".
+	ChatMentionUnavailableTypeCounterparty ChatMentionUnavailableType = "counterparty"
+	// ChatMentionUnavailableTypeBatch is the value "batch".
+	ChatMentionUnavailableTypeBatch ChatMentionUnavailableType = "batch"
+)
+
 // ChatMessage: Сообщение разговора: вопрос человека (role = user) или ответ ИИ (role = assistant)
 //
 // It is a union discriminated by the "role" property. Value holds a pointer to one of the variants:
@@ -8357,6 +9117,10 @@ type ChatMessageRequest struct {
 	Capabilities []string `json:"capabilities,omitzero"`
 	// Продолжить разговор с этим id. Без него — новый разговор, его id придёт в заголовке X-Dialog-Id
 	DialogID Nullable[string] `json:"dialog_id,omitzero"`
+	// Усилие ИИ на этот вопрос: low < medium < high < xhigh < max — глубже думает, дольше и дороже (больше расход лимита). Не прислано или null — усилие выбирает Tungo. Только на тарифе с выбором усилия (max_effort тарифа в GE…
+	Effort Nullable[ChatMessageRequestEffort] `json:"effort,omitzero"`
+	// Упоминания через «@» в этом вопросе, до 10: ИИ получит их вместе с вопросом. Каждое проверяется на доступ: нет объекта в этой компании или нет права его видеть — 404 (error.code = mention_not_found, error.index — номер в…
+	Mentions []ChatMention `json:"mentions,omitzero"`
 	// Вопрос человека, до 4000 знаков; можно не писать, если приложены файлы
 	Message *string `json:"message,omitempty"`
 	// Режим хода: auto (по умолчанию) — ИИ сам решает, ответить или подготовить документ; ask — только ответ и разбор, без документов; document — подготовить документ
@@ -8388,8 +9152,27 @@ func (v ChatMessageRequest) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatMessageRequest) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "attachments", "capabilities", "dialog_id", "message", "mode", "new_dialog", "proposal_id", "stream", "turn")
+	return extraFields(v.raw, "attachments", "capabilities", "dialog_id", "effort", "mentions", "message", "mode", "new_dialog", "proposal_id", "stream", "turn")
 }
+
+// ChatMessageRequestEffort: Усилие ИИ на этот вопрос: low < medium < high < xhigh < max — глубже думает, дольше и дороже (больше расход лимита). Не прислано или null — усилие выбирает Tungo. Только на тарифе с выбором усилия (max_effort тарифа в GE…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMessageRequestEffort string
+
+// Known values of ChatMessageRequestEffort.
+const (
+	// ChatMessageRequestEffortLow is the value "low".
+	ChatMessageRequestEffortLow ChatMessageRequestEffort = "low"
+	// ChatMessageRequestEffortMedium is the value "medium".
+	ChatMessageRequestEffortMedium ChatMessageRequestEffort = "medium"
+	// ChatMessageRequestEffortHigh is the value "high".
+	ChatMessageRequestEffortHigh ChatMessageRequestEffort = "high"
+	// ChatMessageRequestEffortXhigh is the value "xhigh".
+	ChatMessageRequestEffortXhigh ChatMessageRequestEffort = "xhigh"
+	// ChatMessageRequestEffortMax is the value "max".
+	ChatMessageRequestEffortMax ChatMessageRequestEffort = "max"
+)
 
 // ChatMessageRequestMode: Режим хода: auto (по умолчанию) — ИИ сам решает, ответить или подготовить документ; ask — только ответ и разбор, без документов; document — подготовить документ
 //
@@ -8405,6 +9188,131 @@ const (
 	// ChatMessageRequestModeDocument is the value "document".
 	ChatMessageRequestModeDocument ChatMessageRequestMode = "document"
 )
+
+// ChatNextAction: Предложенное следующее действие под ответом ИИ. Сам ИИ его не запускает: действие начинается только новым вопросом человека
+type ChatNextAction struct {
+	// Код действия — по нему кабинет подписывает кнопку: - `prepare_document` — подготовить документ для 1С; params.kind — вид документа - `run_check` — запустить проверку учёта - `build_tax_form` — собрать налоговую форму; pa…
+	Code ChatNextActionCode `json:"code"`
+	// Параметры действия, плоские. У prepare_document есть kind — вид документа: sale, purchase, bank_receipt, bank_payment, cash_order_in, cash_order_out, advance_report, inventory_writeoff, counterparty, contract
+	Params map[string]ChatNextActionParamsValue `json:"params"`
+	// Текст нового вопроса от имени человека: нажатие кнопки — обычный POST …/chat с этим message в том же разговоре
+	Prompt string `json:"prompt"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatNextAction) UnmarshalJSON(data []byte) error {
+	type plain ChatNextAction
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatNextAction) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatNextAction) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "code", "params", "prompt")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatNextAction) MarshalJSON() ([]byte, error) {
+	type plain ChatNextAction
+	p := plain(v)
+	if p.Params == nil {
+		p.Params = map[string]ChatNextActionParamsValue{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatNextActionCode: Код действия — по нему кабинет подписывает кнопку: - `prepare_document` — подготовить документ для 1С; params.kind — вид документа - `run_check` — запустить проверку учёта - `build_tax_form` — собрать налоговую форму; pa…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatNextActionCode string
+
+// Known values of ChatNextActionCode.
+const (
+	// ChatNextActionCodePrepareDocument is the value "prepare_document".
+	ChatNextActionCodePrepareDocument ChatNextActionCode = "prepare_document"
+	// ChatNextActionCodeRunCheck is the value "run_check".
+	ChatNextActionCodeRunCheck ChatNextActionCode = "run_check"
+	// ChatNextActionCodeBuildTaxForm is the value "build_tax_form".
+	ChatNextActionCodeBuildTaxForm ChatNextActionCode = "build_tax_form"
+	// ChatNextActionCodeCheckCounterparty is the value "check_counterparty".
+	ChatNextActionCodeCheckCounterparty ChatNextActionCode = "check_counterparty"
+)
+
+// ChatNextActionParamsValue is a union of the API contract.
+//
+// The value is one of several JSON shapes; exactly one field is set after decoding:
+//   - String: a string
+//   - Number: a number
+//   - Bool: a boolean
+//
+// A shape this SDK version does not know leaves every field empty; RawJSON still returns it.
+// To send a value set exactly one field; an empty union is encoded as null.
+type ChatNextActionParamsValue struct {
+	// String is set when the value is a string.
+	String *string
+	// Number is set when the value is a number.
+	Number *float64
+	// Bool is set when the value is a boolean.
+	Bool *bool
+
+	raw json.RawMessage
+}
+
+// IsZero reports whether no variant is set and nothing was decoded.
+func (u ChatNextActionParamsValue) IsZero() bool {
+	return u.String == nil && u.Number == nil && u.Bool == nil && u.raw == nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (u ChatNextActionParamsValue) RawJSON() string { return string(u.raw) }
+
+// MarshalJSON encodes the variant that is set; an empty union is encoded as the JSON it was
+// decoded from, or null.
+func (u ChatNextActionParamsValue) MarshalJSON() ([]byte, error) {
+	switch {
+	case u.String != nil:
+		return json.Marshal(u.String)
+	case u.Number != nil:
+		return json.Marshal(u.Number)
+	case u.Bool != nil:
+		return json.Marshal(u.Bool)
+	case u.raw != nil:
+		return u.raw, nil
+	}
+	return []byte("null"), nil
+}
+
+// UnmarshalJSON decodes the variant that matches the JSON shape. It never fails on a shape it
+// does not know: the raw JSON is kept instead.
+func (u *ChatNextActionParamsValue) UnmarshalJSON(data []byte) error {
+	*u = ChatNextActionParamsValue{raw: append(json.RawMessage(nil), data...)}
+	switch jsonKind(data) {
+	case "string":
+		x := new(string)
+		if json.Unmarshal(data, x) == nil {
+			u.String = x
+		}
+	case "number":
+		x := new(float64)
+		if json.Unmarshal(data, x) == nil {
+			u.Number = x
+		}
+	case "boolean":
+		x := new(bool)
+		if json.Unmarshal(data, x) == nil {
+			u.Bool = x
+		}
+	}
+	return nil
+}
 
 // ChatPendingQuestion: Открытый уточняющий вопрос: показать варианты; ответ — POST …/chat/{id}/answer
 type ChatPendingQuestion struct {
@@ -8504,6 +9412,163 @@ func (v ChatStopResult) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "dismissed", "id", "stopped")
 }
 
+// ChatSuggestion: Подсказка пустого чата
+type ChatSuggestion struct {
+	// `ask` — подставить `prompt` в поле ввода; `connect_onec` — открыть подключение 1С
+	Action ChatSuggestionAction `json:"action"`
+	// Код подсказки — постоянное имя карточки в настройке (для значка и аналитики); текст по нему подбирать не нужно
+	Code string `json:"code"`
+	// Пояснение под заголовком
+	Hint string `json:"hint"`
+	// Текст вопроса для поля ввода при нажатии (у `connect_onec` не нужен — совпадает с заголовком)
+	Prompt string `json:"prompt"`
+	// Карточка сезонная: показана, потому что сегодня её окно показа; такие стоят в разделе первыми
+	Seasonal bool `json:"seasonal"`
+	// Заголовок карточки на языке ответа, даты уже подставлены
+	Title string `json:"title"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatSuggestion) UnmarshalJSON(data []byte) error {
+	type plain ChatSuggestion
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatSuggestion) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatSuggestion) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "action", "code", "hint", "prompt", "seasonal", "title")
+}
+
+// ChatSuggestionAction: `ask` — подставить `prompt` в поле ввода; `connect_onec` — открыть подключение 1С
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatSuggestionAction string
+
+// Known values of ChatSuggestionAction.
+const (
+	// ChatSuggestionActionAsk is the value "ask".
+	ChatSuggestionActionAsk ChatSuggestionAction = "ask"
+	// ChatSuggestionActionConnectOneC is the value "connect_onec".
+	ChatSuggestionActionConnectOneC ChatSuggestionAction = "connect_onec"
+)
+
+// ChatSuggestionGroup: Раздел подсказок
+type ChatSuggestionGroup struct {
+	// Код раздела — постоянное имя (для значка вкладки)
+	Code string `json:"code"`
+	// Подсказки раздела по порядку показа: сезонные первыми; только подходящие компании сейчас и доступные человеку по правам; не больше настройки chat.suggestions_per_group
+	Suggestions []ChatSuggestion `json:"suggestions"`
+	// Название раздела на языке ответа
+	Title string `json:"title"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatSuggestionGroup) UnmarshalJSON(data []byte) error {
+	type plain ChatSuggestionGroup
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatSuggestionGroup) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatSuggestionGroup) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "code", "suggestions", "title")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatSuggestionGroup) MarshalJSON() ([]byte, error) {
+	type plain ChatSuggestionGroup
+	p := plain(v)
+	if p.Suggestions == nil {
+		p.Suggestions = []ChatSuggestion{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatSuggestions: Подсказки пустого чата с текстами — по состоянию компании, правам человека и календарю
+type ChatSuggestions struct {
+	// Разделы по порядку показа; пустых разделов нет
+	Data []ChatSuggestionGroup `json:"data"`
+	// Язык текстов в ответе
+	Locale ChatSuggestionsLocale `json:"locale"`
+	// Подключена ли 1С компании: от этого зависит набор подсказок
+	OneCLinked bool `json:"onec_linked"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatSuggestions) UnmarshalJSON(data []byte) error {
+	type plain ChatSuggestions
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatSuggestions) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatSuggestions) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "data", "locale", "onec_linked")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatSuggestions) MarshalJSON() ([]byte, error) {
+	type plain ChatSuggestions
+	p := plain(v)
+	if p.Data == nil {
+		p.Data = []ChatSuggestionGroup{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatSuggestionsLocale: Язык текстов в ответе
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatSuggestionsLocale string
+
+// Known values of ChatSuggestionsLocale.
+const (
+	// ChatSuggestionsLocaleRu is the value "ru".
+	ChatSuggestionsLocaleRu ChatSuggestionsLocale = "ru"
+	// ChatSuggestionsLocaleKk is the value "kk".
+	ChatSuggestionsLocaleKk ChatSuggestionsLocale = "kk"
+)
+
+// ChatTitleSource: Откуда название разговора: first_message — первый вопрос (пока ИИ не придумал название, или не смог); ai — придумал ИИ после первого ответа (событие title в потоке хода); user — задал человек (PATCH …/chat/{id}), ИИ его …
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatTitleSource string
+
+// Known values of ChatTitleSource.
+const (
+	// ChatTitleSourceFirstMessage is the value "first_message".
+	ChatTitleSourceFirstMessage ChatTitleSource = "first_message"
+	// ChatTitleSourceAi is the value "ai".
+	ChatTitleSourceAi ChatTitleSource = "ai"
+	// ChatTitleSourceUser is the value "user".
+	ChatTitleSourceUser ChatTitleSource = "user"
+)
+
 // ChatTokenCount: Размер и самая большая цена первого вызова модели
 type ChatTokenCount struct {
 	// Цена входа без скидки кэша, в тиынах
@@ -8587,13 +9652,13 @@ const (
 
 // ChatTurnError: Ошибка хода
 type ChatTurnError struct {
-	// Только у code = budget: лимит можно попросить поднять у админа
+	// Только у code = budget с limit_kind day или dialog: лимит можно попросить поднять у владельца или админа организации. Нет — просить некого (человек сам владелец или админ) или причина не в этом лимите
 	//
 	// When present it is always "true".
 	CanRequestMore *bool `json:"can_request_more,omitempty"`
-	// Причина: - `budget` — кончился лимит (дня или разговора) - `rate_limited` — сервис модели перегружен — повторите - `api` — сбой сервиса модели - `refusal` — модель отказалась отвечать - `context_overflow` — разговор слиш…
+	// Причина: - `budget` — кончился лимит (дня или разговора) - `parallel_turns_limit` — у человека уже идёт предельное число ходов ИИ (тариф без доп. использования) — дождаться ответа на предыдущие вопросы - `rate_limited` —…
 	Code ChatTurnErrorCode `json:"code"`
-	// Только у code = budget: day — дневной лимит, dialog — лимит разговора
+	// Только у code = budget — почему ход остановлен: - `day` — дневной лимит человека исчерпан — продолжить завтра (по Алматы) или поднять лимит - `dialog` — лимит разговора исчерпан — начать новый разговор - `turn` — потолок…
 	LimitKind *ChatTurnErrorLimitKind `json:"limit_kind,omitempty"`
 	// Текст для человека — показать в ленте ответа
 	Message string `json:"message"`
@@ -8621,7 +9686,7 @@ func (v ChatTurnError) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "can_request_more", "code", "limit_kind", "message", "type")
 }
 
-// ChatTurnErrorCode: Причина: - `budget` — кончился лимит (дня или разговора) - `rate_limited` — сервис модели перегружен — повторите - `api` — сбой сервиса модели - `refusal` — модель отказалась отвечать - `context_overflow` — разговор слиш…
+// ChatTurnErrorCode: Причина: - `budget` — кончился лимит (дня или разговора) - `parallel_turns_limit` — у человека уже идёт предельное число ходов ИИ (тариф без доп. использования) — дождаться ответа на предыдущие вопросы - `rate_limited` —…
 //
 // The set is open: a value this SDK version does not know is kept as it was received.
 type ChatTurnErrorCode string
@@ -8630,6 +9695,8 @@ type ChatTurnErrorCode string
 const (
 	// ChatTurnErrorCodeBudget is the value "budget".
 	ChatTurnErrorCodeBudget ChatTurnErrorCode = "budget"
+	// ChatTurnErrorCodeParallelTurnsLimit is the value "parallel_turns_limit".
+	ChatTurnErrorCodeParallelTurnsLimit ChatTurnErrorCode = "parallel_turns_limit"
 	// ChatTurnErrorCodeRateLimited is the value "rate_limited".
 	ChatTurnErrorCodeRateLimited ChatTurnErrorCode = "rate_limited"
 	// ChatTurnErrorCodeAPI is the value "api".
@@ -8660,7 +9727,7 @@ const (
 	ChatTurnErrorCodeBatchAbandoned ChatTurnErrorCode = "batch_abandoned"
 )
 
-// ChatTurnErrorLimitKind: Только у code = budget: day — дневной лимит, dialog — лимит разговора
+// ChatTurnErrorLimitKind: Только у code = budget — почему ход остановлен: - `day` — дневной лимит человека исчерпан — продолжить завтра (по Алматы) или поднять лимит - `dialog` — лимит разговора исчерпан — начать новый разговор - `turn` — потолок…
 //
 // The set is open: a value this SDK version does not know is kept as it was received.
 type ChatTurnErrorLimitKind string
@@ -8671,6 +9738,14 @@ const (
 	ChatTurnErrorLimitKindDay ChatTurnErrorLimitKind = "day"
 	// ChatTurnErrorLimitKindDialog is the value "dialog".
 	ChatTurnErrorLimitKindDialog ChatTurnErrorLimitKind = "dialog"
+	// ChatTurnErrorLimitKindTurn is the value "turn".
+	ChatTurnErrorLimitKindTurn ChatTurnErrorLimitKind = "turn"
+	// ChatTurnErrorLimitKindPlan is the value "plan".
+	ChatTurnErrorLimitKindPlan ChatTurnErrorLimitKind = "plan"
+	// ChatTurnErrorLimitKindDisabled is the value "disabled".
+	ChatTurnErrorLimitKindDisabled ChatTurnErrorLimitKind = "disabled"
+	// ChatTurnErrorLimitKindMeter is the value "meter".
+	ChatTurnErrorLimitKindMeter ChatTurnErrorLimitKind = "meter"
 )
 
 // ChatTurnProposal: Предложение, подготовленное в ходе
@@ -8711,6 +9786,10 @@ type ChatTurnResult struct {
 	DialogID string `json:"dialog_id"`
 	// Ошибки хода (как error в событии error); пусто — без ошибок
 	Errors []ChatTurnError `json:"errors"`
+	// Вопросы-продолжения под ответом, до 3, на языке разговора: нажатие — обычный новый вопрос с этим текстом. Пусто — предложить нечего
+	Followups []string `json:"followups"`
+	// Предложенное следующее действие; null — нет
+	NextAction *ChatNextAction `json:"next_action"`
 	// Открытый уточняющий вопрос: ответ — POST …/chat/{dialog_id}/answer; null — вопроса нет
 	PendingQuestion *ChatPendingQuestion `json:"pending_question"`
 	// Документы, которые ИИ подготовил в этом ходе
@@ -8742,7 +9821,7 @@ func (v ChatTurnResult) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatTurnResult) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "answer", "citations", "dialog_id", "errors", "pending_question", "proposals", "questions", "stop_reason", "turn_no", "usage")
+	return extraFields(v.raw, "answer", "citations", "dialog_id", "errors", "followups", "next_action", "pending_question", "proposals", "questions", "stop_reason", "turn_no", "usage")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -8754,6 +9833,9 @@ func (v ChatTurnResult) MarshalJSON() ([]byte, error) {
 	}
 	if p.Errors == nil {
 		p.Errors = []ChatTurnError{}
+	}
+	if p.Followups == nil {
+		p.Followups = []string{}
 	}
 	if p.Proposals == nil {
 		p.Proposals = []ChatTurnProposal{}
@@ -8838,6 +9920,8 @@ type ChatUserMessage struct {
 	Attachments []ChatAttachmentMeta `json:"attachments,omitzero"`
 	// Устойчивый id сообщения: <dialog_id>:<номер хода>:u
 	ID string `json:"id"`
+	// Упоминания через «@» в этом вопросе, если были: вид, id и название на момент отправки
+	Mentions []ChatHistoryMention `json:"mentions,omitzero"`
 	// Вопрос идущего хода: ответа ещё нет, его дочитывают потоком (GET …/chat/{id}/events?turn=). Только у последнего сообщения
 	//
 	// When present it is always "true".
@@ -8867,7 +9951,7 @@ func (v ChatUserMessage) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatUserMessage) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "at", "attachments", "id", "pending", "role", "text")
+	return extraFields(v.raw, "at", "attachments", "id", "mentions", "pending", "role", "text")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -8889,7 +9973,7 @@ type Company struct {
 	// Компания — её id во всех адресах /v1/companies/{co}/… (co_…)
 	ID string `json:"id"`
 	// LegalForm is the "legal_form" property.
-	LegalForm CompanyLegalForm `json:"legal_form"`
+	LegalForm *CompanyLegalForm `json:"legal_form"`
 	// Название компании, как его ввели при заведении
 	Name string `json:"name"`
 	// Ваши права в этой компании — по ним кабинет прячет или гасит кнопки (нет proposals.approve — нет «Одобрить»). По ключу API — права, суженные до прав ключа. Порядок — как в каталоге прав
@@ -9472,7 +10556,7 @@ func (v CompanyCounts) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "proposals_blocked", "proposals_to_decide")
 }
 
-// CompanyLegalForm: Форма: ip — ИП, too — ТОО, ao — АО, other — другое
+// CompanyLegalForm: Форма: ip — ИП, too — ТОО, ao — АО, other — другое; null — ещё не указана (задаётся в карточке компании: PATCH /v1/companies/{co})
 //
 // The set is open: a value this SDK version does not know is kept as it was received.
 type CompanyLegalForm string
@@ -9500,7 +10584,7 @@ type CompanyListItem struct {
 	// Компания — её id во всех адресах /v1/companies/{co}/… (co_…)
 	ID string `json:"id"`
 	// LegalForm is the "legal_form" property.
-	LegalForm CompanyLegalForm `json:"legal_form"`
+	LegalForm *CompanyLegalForm `json:"legal_form"`
 	// Название компании, как его ввели при заведении
 	Name string `json:"name"`
 	// Ваши права в этой компании — по ним кабинет прячет или гасит кнопки (нет proposals.approve — нет «Одобрить»). По ключу API — права, суженные до прав ключа. Порядок — как в каталоге прав
@@ -9960,18 +11044,28 @@ func (v ErrorEnvelope) MarshalJSON() ([]byte, error) {
 type ErrorDetail struct {
 	// При code = login_method_not_allowed — какими способами входа организация пускает к своим данным: email_otp — код из почты, google, apple, telegram, sso — SSO организации. Предложить выйти и войти одним из них.
 	AllowedMethods []ErrorDetailAllowedMethodItem `json:"allowed_methods,omitzero"`
-	// Уточнение вида: по нему выбирается действие интерфейса (кнопка «Пополнить», «Войти иначе»…). Нет поля — хватает type и message. Известные коды: - `sso_domain_taken` (409) — домен SSO уже подтверждён другой организацией -…
+	// При code = subscription_unpaid_debt — сколько оплатить, в тиынах: сумма всех неоплаченных счетов подписки.
+	AmountTiyn *int64 `json:"amount_tiyn,omitempty"`
+	// Уточнение вида: по нему выбирается действие интерфейса (кнопка «Пополнить», «Войти иначе»…). Нет поля — хватает type и message. Известные коды: - `cannot_ban_self` (409) — админка: закрыть вход самому себе нельзя - `user…
 	Code *string `json:"code,omitempty"`
 	// При code = validation_failed — ошибки по полям, в порядке проверки; у одного поля может быть несколько.
 	Fields []FieldError `json:"fields,omitzero"`
+	// При code = free_limit_unavailable. Главная причина отказа в бесплатном лимите: `admin_decision` — решение администратора; `temporary_email` — учётная запись на временной почте; `hidden_email` — скрытая почта Apple; `emai…
+	FreeBlockedReason *ErrorDetailFreeBlockedReason `json:"free_blocked_reason,omitempty"`
 	// Готовый текст для человека по-русски: что случилось, что делать и к кому обратиться. Показывать как есть; не разбирать — формулировки меняются.
 	Message string `json:"message"`
+	// Тот же срок моментом времени — ISO 8601, UTC: когда запрос можно повторить.
+	NextRequestAt *string `json:"next_request_at,omitempty"`
+	// При code = subscription_unpaid_debt — платёж для кнопки «Оплатить» (…/billing/payments/{payment_id}/pay-form); null — вести к списку счетов.
+	PaymentID *string `json:"payment_id,omitempty"`
 	// При code = missing_permission — какого права не хватает: права в компании (company.read, company.manage, company.members.manage, onec.connect, proposals.create, proposals.approve, chat.use, audit.read, automations.manage…
 	Permission *string `json:"permission,omitempty"`
 	// При code = role_above_yours — права этой роли, которых нет у того, кто выдаёт. Показать списком: «у роли есть права, которых нет у вас: …».
 	Permissions []string `json:"permissions,omitzero"`
 	// Когда ограничение снимется само — ISO 8601, UTC. Есть у plan_limit_reached (конец окна тарифа) и у месячных потолков (workspace_cap_reached, company_cap_reached, member_cap_reached, key_cap_reached, platform_cap_reached …
 	ResetsAt *string `json:"resets_at,omitempty"`
+	// При отказе по частоте (429) на адресах экрана входа — через сколько секунд можно повторить (то же число, что в заголовке Retry-After). Показать таймер.
+	RetryAfterSeconds *int64 `json:"retry_after_seconds,omitempty"`
 	// При code = role_above_yours — ключ роли в компании, которую нельзя выдать или снять (например chief_accountant).
 	Role *string `json:"role,omitempty"`
 	// Вид ошибки — по нему ветвится клиент (не по тексту message). Статус HTTP у вида один, кроме invalid_request_error: - `invalid_request_error` (400) — запрос неверен: поле не прошло проверку, неверный формат, действие сейч…
@@ -9995,7 +11089,7 @@ func (v ErrorDetail) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ErrorDetail) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "allowed_methods", "code", "fields", "message", "permission", "permissions", "resets_at", "role", "type")
+	return extraFields(v.raw, "allowed_methods", "amount_tiyn", "code", "fields", "free_blocked_reason", "message", "next_request_at", "payment_id", "permission", "permissions", "resets_at", "retry_after_seconds", "role", "type")
 }
 
 // ErrorDetailAllowedMethodItem is an enumeration of the API contract.
@@ -10015,6 +11109,31 @@ const (
 	ErrorDetailAllowedMethodItemTelegram ErrorDetailAllowedMethodItem = "telegram"
 	// ErrorDetailAllowedMethodItemSso is the value "sso".
 	ErrorDetailAllowedMethodItemSso ErrorDetailAllowedMethodItem = "sso"
+)
+
+// ErrorDetailFreeBlockedReason: При code = free_limit_unavailable. Главная причина отказа в бесплатном лимите: `admin_decision` — решение администратора; `temporary_email` — учётная запись на временной почте; `hidden_email` — скрытая почта Apple; `emai…
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ErrorDetailFreeBlockedReason string
+
+// Known values of ErrorDetailFreeBlockedReason.
+const (
+	// ErrorDetailFreeBlockedReasonAdminDecision is the value "admin_decision".
+	ErrorDetailFreeBlockedReasonAdminDecision ErrorDetailFreeBlockedReason = "admin_decision"
+	// ErrorDetailFreeBlockedReasonTemporaryEmail is the value "temporary_email".
+	ErrorDetailFreeBlockedReasonTemporaryEmail ErrorDetailFreeBlockedReason = "temporary_email"
+	// ErrorDetailFreeBlockedReasonHiddenEmail is the value "hidden_email".
+	ErrorDetailFreeBlockedReasonHiddenEmail ErrorDetailFreeBlockedReason = "hidden_email"
+	// ErrorDetailFreeBlockedReasonEmailUsed is the value "email_used".
+	ErrorDetailFreeBlockedReasonEmailUsed ErrorDetailFreeBlockedReason = "email_used"
+	// ErrorDetailFreeBlockedReasonDeviceUsed is the value "device_used".
+	ErrorDetailFreeBlockedReasonDeviceUsed ErrorDetailFreeBlockedReason = "device_used"
+	// ErrorDetailFreeBlockedReasonNetworkLimit is the value "network_limit".
+	ErrorDetailFreeBlockedReasonNetworkLimit ErrorDetailFreeBlockedReason = "network_limit"
+	// ErrorDetailFreeBlockedReasonCompanyUsed is the value "company_used".
+	ErrorDetailFreeBlockedReasonCompanyUsed ErrorDetailFreeBlockedReason = "company_used"
+	// ErrorDetailFreeBlockedReasonOther is the value "other".
+	ErrorDetailFreeBlockedReasonOther ErrorDetailFreeBlockedReason = "other"
 )
 
 // ErrorDetailType: Вид ошибки — по нему ветвится клиент (не по тексту message). Статус HTTP у вида один, кроме invalid_request_error: - `invalid_request_error` (400) — запрос неверен: поле не прошло проверку, неверный формат, действие сейч…
@@ -11255,6 +12374,10 @@ type GetWorkspacePlatformAuditResponse struct {
 	Data []AuditEntry `json:"data"`
 	// Курсор следующей страницы. Чтобы получить её — тот же запрос (с теми же фильтрами) и `?cursor=<это значение>`. null — страниц больше нет (кнопку «Ещё» спрятать). Курсор непрозрачный: не разбирать и не собирать самому, хр…
 	NextCursor *string `json:"next_cursor"`
+	// Сколько всего записей под этими фильтрами (курсор не учитывается). Считается не дальше 10 000: если записей больше — здесь 10 000 и total_more = true
+	Total int64 `json:"total"`
+	// true — записей больше, чем total: писать «больше 10 000», а не точное число
+	TotalMore bool `json:"total_more"`
 
 	raw  json.RawMessage
 	next func(ctx context.Context, cursor string) (*GetWorkspacePlatformAuditResponse, error)
@@ -11275,7 +12398,7 @@ func (v GetWorkspacePlatformAuditResponse) RawJSON() string { return string(v.ra
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v GetWorkspacePlatformAuditResponse) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "data", "next_cursor")
+	return extraFields(v.raw, "data", "next_cursor", "total", "total_more")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -11787,6 +12910,32 @@ func (v ListCompanyAutomationsScenariosResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+// ListCompanyChatSuggestionsLang: Язык текстов — язык интерфейса кабинета. Не передан — язык ответов ИИ из профиля (`kk` — по-казахски, иначе по-русски)
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ListCompanyChatSuggestionsLang string
+
+// Known values of ListCompanyChatSuggestionsLang.
+const (
+	// ListCompanyChatSuggestionsLangRu is the value "ru".
+	ListCompanyChatSuggestionsLangRu ListCompanyChatSuggestionsLang = "ru"
+	// ListCompanyChatSuggestionsLangKk is the value "kk".
+	ListCompanyChatSuggestionsLangKk ListCompanyChatSuggestionsLang = "kk"
+)
+
+// ListCompanyProposalsApprovalRequested: true — только отправленные на одобрение и ещё не решённые; false — только остальные
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ListCompanyProposalsApprovalRequested string
+
+// Known values of ListCompanyProposalsApprovalRequested.
+const (
+	// ListCompanyProposalsApprovalRequestedTrue is the value "true".
+	ListCompanyProposalsApprovalRequestedTrue ListCompanyProposalsApprovalRequested = "true"
+	// ListCompanyProposalsApprovalRequestedFalse is the value "false".
+	ListCompanyProposalsApprovalRequestedFalse ListCompanyProposalsApprovalRequested = "false"
+)
+
 // ListUsageRatesResponse is a model of the API contract.
 type ListUsageRatesResponse struct {
 	// Элементы списка — весь список одним ответом, без страниц
@@ -11829,6 +12978,10 @@ type ListWorkspacePlatformRequestsResponse struct {
 	Data []PlatformRequest `json:"data"`
 	// Курсор следующей страницы. Чтобы получить её — тот же запрос (с теми же фильтрами) и `?cursor=<это значение>`. null — страниц больше нет (кнопку «Ещё» спрятать). Курсор непрозрачный: не разбирать и не собирать самому, хр…
 	NextCursor *string `json:"next_cursor"`
+	// Сколько всего записей под этими фильтрами (курсор не учитывается). Считается не дальше 10 000: если записей больше — здесь 10 000 и total_more = true
+	Total int64 `json:"total"`
+	// true — записей больше, чем total: писать «больше 10 000», а не точное число
+	TotalMore bool `json:"total_more"`
 
 	raw  json.RawMessage
 	next func(ctx context.Context, cursor string) (*ListWorkspacePlatformRequestsResponse, error)
@@ -11849,7 +13002,7 @@ func (v ListWorkspacePlatformRequestsResponse) RawJSON() string { return string(
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ListWorkspacePlatformRequestsResponse) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "data", "next_cursor")
+	return extraFields(v.raw, "data", "next_cursor", "total", "total_more")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -12489,6 +13642,8 @@ type PayForm struct {
 	PaymentObject map[string]any `json:"payment_object"`
 	// Адрес скрипта платёжной формы ePay: подключить его на странице (тег script) перед открытием формы
 	ScriptURL string `json:"script_url"`
+	// true — тестовый терминал ePay: настоящие деньги не списываются, платят тестовыми картами. Показать на форме пометку «тестовая оплата»
+	TestMode bool `json:"test_mode"`
 
 	raw json.RawMessage
 }
@@ -12508,7 +13663,7 @@ func (v PayForm) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v PayForm) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "amount_tiyn", "payment_id", "payment_object", "script_url")
+	return extraFields(v.raw, "amount_tiyn", "payment_id", "payment_object", "script_url", "test_mode")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -12622,6 +13777,8 @@ type PlatformAccountPurchaseLimits struct {
 	MaxTiyn int64 `json:"max_tiyn"`
 	// Наименьшее пополнение в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	MinTiyn int64 `json:"min_tiyn"`
+	// Сколько уже пополнено сегодня (сутки по Алматы; платежи без итога тоже в счёте) — тот же счёт, что у предела daily_max_tiyn в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
+	TodayTiyn int64 `json:"today_tiyn"`
 
 	raw json.RawMessage
 }
@@ -12641,7 +13798,7 @@ func (v PlatformAccountPurchaseLimits) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v PlatformAccountPurchaseLimits) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "daily_max_tiyn", "max_tiyn", "min_tiyn")
+	return extraFields(v.raw, "daily_max_tiyn", "max_tiyn", "min_tiyn", "today_tiyn")
 }
 
 // PlatformAutoReload: Автопополнение баланса платформы.
@@ -12686,6 +13843,8 @@ type PlatformLedgerEntry struct {
 	At string `json:"at"`
 	// Баланс после движения в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	BalanceAfterTiyn int64 `json:"balance_after_tiyn"`
+	// Документы пополнения (kind = purchase) из его платежа. null — у остальных видов и у ключа не на все компании. Файл PDF ядро не формирует: чек выпускает касса, ссылка появляется в receipt_url
+	Documents *PlatformLedgerEntryDocuments `json:"documents"`
 	// id движения (led_…); он же — курсор
 	ID string `json:"id"`
 	// Вид: `purchase` — пополнение с карты; `usage` — списание за вызов модели; `refund` — возврат на карту (баланс уменьшается); `adjustment` — корректировка поддержкой или возврат удержанной суммы
@@ -12717,8 +13876,57 @@ func (v PlatformLedgerEntry) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v PlatformLedgerEntry) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "amount_tiyn", "api_key_id", "at", "balance_after_tiyn", "id", "kind", "model", "note", "payment_id", "request_id")
+	return extraFields(v.raw, "amount_tiyn", "api_key_id", "at", "balance_after_tiyn", "documents", "id", "kind", "model", "note", "payment_id", "request_id")
 }
+
+// PlatformLedgerEntryDocuments: Документы пополнения (kind = purchase) из его платежа. null — у остальных видов и у ключа не на все компании. Файл PDF ядро не формирует: чек выпускает касса, ссылка появляется в receipt_url
+type PlatformLedgerEntryDocuments struct {
+	// Номер акта выполненных работ (ACT-…), когда платёж прошёл; null — нет
+	ActNumber *string `json:"act_number"`
+	// Номер счёта на оплату по этому пополнению (TG-…); null — нет
+	InvoiceNumber *string `json:"invoice_number"`
+	// Чек ККМ: not_required — не нужен; pending — выпускается; issued — выпущен (ссылка в receipt_url); failed — не выпустился, мы разбираемся; null — платёж ещё не прошёл
+	ReceiptStatus *PlatformLedgerEntryDocumentsReceiptStatus `json:"receipt_status"`
+	// Ссылка на чек ККМ этого пополнения — «Чек» в истории; null — чек ещё не выпущен или не нужен (см. receipt_status)
+	ReceiptURL *string `json:"receipt_url"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *PlatformLedgerEntryDocuments) UnmarshalJSON(data []byte) error {
+	type plain PlatformLedgerEntryDocuments
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v PlatformLedgerEntryDocuments) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v PlatformLedgerEntryDocuments) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "act_number", "invoice_number", "receipt_status", "receipt_url")
+}
+
+// PlatformLedgerEntryDocumentsReceiptStatus: Чек ККМ: not_required — не нужен; pending — выпускается; issued — выпущен (ссылка в receipt_url); failed — не выпустился, мы разбираемся; null — платёж ещё не прошёл
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type PlatformLedgerEntryDocumentsReceiptStatus string
+
+// Known values of PlatformLedgerEntryDocumentsReceiptStatus.
+const (
+	// PlatformLedgerEntryDocumentsReceiptStatusNotRequired is the value "not_required".
+	PlatformLedgerEntryDocumentsReceiptStatusNotRequired PlatformLedgerEntryDocumentsReceiptStatus = "not_required"
+	// PlatformLedgerEntryDocumentsReceiptStatusPending is the value "pending".
+	PlatformLedgerEntryDocumentsReceiptStatusPending PlatformLedgerEntryDocumentsReceiptStatus = "pending"
+	// PlatformLedgerEntryDocumentsReceiptStatusIssued is the value "issued".
+	PlatformLedgerEntryDocumentsReceiptStatusIssued PlatformLedgerEntryDocumentsReceiptStatus = "issued"
+	// PlatformLedgerEntryDocumentsReceiptStatusFailed is the value "failed".
+	PlatformLedgerEntryDocumentsReceiptStatusFailed PlatformLedgerEntryDocumentsReceiptStatus = "failed"
+)
 
 // PlatformLedgerEntryKind: Вид: `purchase` — пополнение с карты; `usage` — списание за вызов модели; `refund` — возврат на карту (баланс уменьшается); `adjustment` — корректировка поддержкой или возврат удержанной суммы
 //
@@ -13024,6 +14232,8 @@ type PlatformRequest struct {
 	ClientRequestID *string `json:"client_request_id"`
 	// Компания из адреса (co_…); null — адрес не про компанию
 	CompanyID *string `json:"company_id"`
+	// Цена запроса в тиынах — сколько списано с баланса платформы за вызовы модели этого запроса (ход ИИ; у хода потоком — когда он закончится). null — запрос модель не вызывал; у запросов до появления этого поля тоже null
+	CostTiyn *int64 `json:"cost_tiyn"`
 	// Сколько шёл ответ, мс. У хода ИИ — до начала потока событий
 	DurationMs int64 `json:"duration_ms"`
 	// id строки журнала (rlg_…)
@@ -13059,7 +14269,7 @@ func (v PlatformRequest) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v PlatformRequest) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "api_key_id", "at", "client_request_id", "company_id", "duration_ms", "id", "ip", "method", "path", "query", "request_id", "status")
+	return extraFields(v.raw, "api_key_id", "at", "client_request_id", "company_id", "cost_tiyn", "duration_ms", "id", "ip", "method", "path", "query", "request_id", "status")
 }
 
 // PlatformSettingsInput: Настройки платформы — целиком.
@@ -13546,6 +14756,136 @@ func (v ProposalApproval) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+// ProposalApprovalRequest: «Отправить на одобрение»: человек без права записывать в 1С просит решения у того, у кого право есть. Статус предложения не меняется
+type ProposalApprovalRequest struct {
+	// Тот, кто смотрит, может отправить на одобрение: готовит документы (proposals.create), сам одобрять не вправе, предложение ждёт решения без блокеров и ещё не отправлено
+	CanRequest bool `json:"can_request"`
+	// Куда отправить просьбу: POST …/proposals/{id}/request-approval
+	Href string `json:"href"`
+	// Действующая просьба одобрить; null — не просили или решение уже принято
+	Requested *ProposalApprovalRequested `json:"requested"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalApprovalRequest) UnmarshalJSON(data []byte) error {
+	type plain ProposalApprovalRequest
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalApprovalRequest) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalApprovalRequest) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "can_request", "href", "requested")
+}
+
+// ProposalApprovalRequestBody: Просьба одобрить
+type ProposalApprovalRequestBody struct {
+	// Пояснение для того, кто одобряет, до 1000 знаков; попадёт в историю предложения и журнал
+	Note Nullable[string] `json:"note,omitzero"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalApprovalRequestBody) UnmarshalJSON(data []byte) error {
+	type plain ProposalApprovalRequestBody
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalApprovalRequestBody) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalApprovalRequestBody) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "note")
+}
+
+// ProposalApprovalRequestResult: Итог просьбы одобрить и свежая карточка
+type ProposalApprovalRequestResult struct {
+	// true — письмо тем, кто одобряет, поставлено в очередь; false — повтор, письмо поставить не удалось или оно придержано: всем одобряющим по этой компании недавно уже писали (настройка notify.approval_request_interval_minut…
+	Notified bool `json:"notified"`
+	// Всегда true
+	//
+	// Always "true"; filled in automatically when the value is encoded.
+	Ok bool `json:"ok"`
+	// Proposal is the "proposal" property.
+	Proposal ProposalCard `json:"proposal"`
+	// true — просьба уже действовала, новой записи и письма нет
+	Repeated bool `json:"repeated"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalApprovalRequestResult) UnmarshalJSON(data []byte) error {
+	type plain ProposalApprovalRequestResult
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalApprovalRequestResult) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalApprovalRequestResult) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "notified", "ok", "proposal", "repeated")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ProposalApprovalRequestResult) MarshalJSON() ([]byte, error) {
+	type plain ProposalApprovalRequestResult
+	p := plain(v)
+	p.Ok = true
+	return json.Marshal(p)
+}
+
+// ProposalApprovalRequested: Действующая просьба одобрить
+type ProposalApprovalRequested struct {
+	// Когда, ISO 8601 UTC
+	At string `json:"at"`
+	// Кто просил: usr_… — человек, key_… — ключ API
+	By string `json:"by"`
+	// Имя просившего для показа — как actor_name в ленте и журнале: имя человека (by = usr_…) или название ключа API (by = key_…). null — имя не нашлось (аккаунт удалён, ключ другой организации) или ответ собран без имён (карт…
+	ByName *string `json:"by_name"`
+	// Пояснение к просьбе, если было
+	Note *string `json:"note,omitempty"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalApprovalRequested) UnmarshalJSON(data []byte) error {
+	type plain ProposalApprovalRequested
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalApprovalRequested) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalApprovalRequested) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "at", "by", "by_name", "note")
+}
+
 // ProposalCard: Полная карточка предложения: шапка, строки, проводки, блокеры, кнопки и история
 type ProposalCard struct {
 	// Кнопки карточки в нужном порядке: approve, approve_draft, reject
@@ -13554,6 +14894,8 @@ type ProposalCard struct {
 	AdvanceOffset *ProposalAdvanceOffset `json:"advance_offset,omitempty"`
 	// Approval is the "approval" property.
 	Approval ProposalApproval `json:"approval"`
+	// ApprovalRequest is the "approval_request" property.
+	ApprovalRequest ProposalApprovalRequest `json:"approval_request"`
 	// Сколько блокеров: больше 0 — одобрить нельзя, нужен ответ человека в чате
 	BlockerCount int64 `json:"blocker_count"`
 	// Блокеры — показать красным: пока они есть, одобрить нельзя. Снимает их ответ человека в чате (ИИ пересоберёт предложение)
@@ -13562,7 +14904,7 @@ type ProposalCard struct {
 	Counterparty *ProposalParty `json:"counterparty,omitempty"`
 	// Когда ИИ подготовил предложение, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
-	// Разговор чата, в котором ИИ подготовил предложение: «Открыть разговор» — GET …/chat/{dialog_id} (если он ваш). null — не из чата (пачка, автоматизация, MCP)
+	// Разговор чата, в котором ИИ подготовил предложение: «Открыть разговор» — GET …/chat/{dialog_id} (если он ваш). null — не из разговора человека (пачка из ручки, автоматизация, MCP)
 	DialogID *string `json:"dialog_id"`
 	// Номер документа в 1С — есть, когда документ уже записан
 	DocumentNumber *string `json:"document_number,omitempty"`
@@ -13588,6 +14930,8 @@ type ProposalCard struct {
 	LineCount int64 `json:"line_count"`
 	// Строки товаров и услуг; пусто у платёжек, кассовых ордеров и справочников
 	Lines []ProposalLine `json:"lines"`
+	// Origin is the "origin" property.
+	Origin ProposalOrigin `json:"origin"`
 	// Ожидаемые проводки — что получится в учёте после проведения
 	Postings []ProposalPosting `json:"postings"`
 	// Result is the "result" property.
@@ -13596,6 +14940,8 @@ type ProposalCard struct {
 	Source ProposalSource `json:"source"`
 	// Status is the "status" property.
 	Status ProposalStatus `json:"status"`
+	// Причина отказа — у статусов rejected (отклонено) и failed (записать не удалось): последняя такая запись history. null — статус другой или причину не записали
+	StatusReason *ProposalCardStatusReason `json:"status_reason"`
 	// Статус по-русски для показа (бейдж)
 	StatusTitle string `json:"status_title"`
 	// Текстовое превью документа (для чата и логов). Интерфейс рисует карточку по полям выше
@@ -13629,7 +14975,7 @@ func (v ProposalCard) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ProposalCard) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "actions", "advance_offset", "approval", "blocker_count", "blockers", "counterparty", "created_at", "dialog_id", "document_number", "header", "history", "href", "id", "intent", "kind", "kind_title", "level", "level_title", "line_count", "lines", "postings", "result", "source", "status", "status_title", "summary", "title", "total", "vat", "warning_count", "warnings")
+	return extraFields(v.raw, "actions", "advance_offset", "approval", "approval_request", "blocker_count", "blockers", "counterparty", "created_at", "dialog_id", "document_number", "header", "history", "href", "id", "intent", "kind", "kind_title", "level", "level_title", "line_count", "lines", "origin", "postings", "result", "source", "status", "status_reason", "status_title", "summary", "title", "total", "vat", "warning_count", "warnings")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -13658,6 +15004,34 @@ func (v ProposalCard) MarshalJSON() ([]byte, error) {
 		p.Warnings = []string{}
 	}
 	return json.Marshal(p)
+}
+
+// ProposalCardStatusReason: Причина отказа — у статусов rejected (отклонено) и failed (записать не удалось): последняя такая запись history. null — статус другой или причину не записали
+type ProposalCardStatusReason struct {
+	// Машинная пометка причины, если есть (например, write_unknown — запись ушла, ответа 1С не было); null — пометки нет
+	Code *string `json:"code"`
+	// Причина словами для показа: что сказал человек при отклонении или почему 1С не записала документ
+	Message string `json:"message"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalCardStatusReason) UnmarshalJSON(data []byte) error {
+	type plain ProposalCardStatusReason
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalCardStatusReason) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalCardStatusReason) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "code", "message")
 }
 
 // ProposalContract: Договор контрагента, по которому идёт документ
@@ -13838,6 +15212,8 @@ type ProposalHistoryEvent struct {
 	Actor string `json:"actor"`
 	// Когда, ISO 8601 UTC
 	At string `json:"at"`
+	// Машинная пометка шага, если есть: `approval_requested` — просили одобрить (статус при этом не менялся); `write_unknown`, `rejected_write_unknown`, `revert_unknown` — исход записи в 1С неизвестен
+	Code *string `json:"code,omitempty"`
 	// Пояснение: причина отклонения, комментарий к одобрению, текст ошибки записи
 	Note *string `json:"note,omitempty"`
 	// Status is the "status" property.
@@ -13863,7 +15239,7 @@ func (v ProposalHistoryEvent) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ProposalHistoryEvent) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "actor", "at", "note", "status", "status_title")
+	return extraFields(v.raw, "actor", "at", "code", "note", "status", "status_title")
 }
 
 // ProposalKind: Что ИИ предлагает записать в 1С (подпись по-русски — в kind_title): - sale — реализация товаров и услуг (продажа покупателю); - purchase — поступление товаров и услуг (покупка у поставщика); - bank_receipt — входящее пла…
@@ -14000,13 +15376,15 @@ const (
 type ProposalListItem struct {
 	// Approval is the "approval" property.
 	Approval ProposalApproval `json:"approval"`
+	// ApprovalRequest is the "approval_request" property.
+	ApprovalRequest ProposalApprovalRequest `json:"approval_request"`
 	// Сколько блокеров: больше 0 — одобрить нельзя, нужен ответ человека в чате
 	BlockerCount int64 `json:"blocker_count"`
 	// Counterparty is the "counterparty" property.
 	Counterparty *ProposalParty `json:"counterparty,omitempty"`
 	// Когда ИИ подготовил предложение, ISO 8601 UTC
 	CreatedAt string `json:"created_at"`
-	// Разговор чата, в котором ИИ подготовил предложение: «Открыть разговор» — GET …/chat/{dialog_id} (если он ваш). null — не из чата (пачка, автоматизация, MCP)
+	// Разговор чата, в котором ИИ подготовил предложение: «Открыть разговор» — GET …/chat/{dialog_id} (если он ваш). null — не из разговора человека (пачка из ручки, автоматизация, MCP)
 	DialogID *string `json:"dialog_id"`
 	// Номер документа в 1С — есть, когда документ уже записан
 	DocumentNumber *string `json:"document_number,omitempty"`
@@ -14024,8 +15402,12 @@ type ProposalListItem struct {
 	LevelTitle string `json:"level_title"`
 	// Сколько строк товаров и услуг в документе; 0 у платёжек и справочников
 	LineCount int64 `json:"line_count"`
+	// Origin is the "origin" property.
+	Origin ProposalOrigin `json:"origin"`
 	// Status is the "status" property.
 	Status ProposalStatus `json:"status"`
+	// Причина отказа — у статусов rejected (отклонено) и failed (записать не удалось): последняя такая запись history. null — статус другой или причину не записали
+	StatusReason *ProposalListItemStatusReason `json:"status_reason"`
 	// Статус по-русски для показа (бейдж)
 	StatusTitle string `json:"status_title"`
 	// Заголовок строки очереди: вид документа, дата и контрагент
@@ -14055,12 +15437,91 @@ func (v ProposalListItem) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ProposalListItem) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "approval", "blocker_count", "counterparty", "created_at", "dialog_id", "document_number", "href", "id", "kind", "kind_title", "level", "level_title", "line_count", "status", "status_title", "title", "total", "vat", "warning_count")
+	return extraFields(v.raw, "approval", "approval_request", "blocker_count", "counterparty", "created_at", "dialog_id", "document_number", "href", "id", "kind", "kind_title", "level", "level_title", "line_count", "origin", "status", "status_reason", "status_title", "title", "total", "vat", "warning_count")
 }
+
+// ProposalListItemStatusReason: Причина отказа — у статусов rejected (отклонено) и failed (записать не удалось): последняя такая запись history. null — статус другой или причину не записали
+type ProposalListItemStatusReason struct {
+	// Машинная пометка причины, если есть (например, write_unknown — запись ушла, ответа 1С не было); null — пометки нет
+	Code *string `json:"code"`
+	// Причина словами для показа: что сказал человек при отклонении или почему 1С не записала документ
+	Message string `json:"message"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalListItemStatusReason) UnmarshalJSON(data []byte) error {
+	type plain ProposalListItemStatusReason
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalListItemStatusReason) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalListItemStatusReason) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "code", "message")
+}
+
+// ProposalOrigin: Откуда пришло предложение и ссылки на источник — вычисляется из связей предложения
+type ProposalOrigin struct {
+	// Задание пачки (bat_…): сводка — GET …/batch/{batch_id}/summary, список документов — GET …/proposals?batch_id=; null — не из пачки
+	BatchID *string `json:"batch_id"`
+	// Разговор чата (то же, что dialog_id предложения); null — не из разговора человека
+	DialogID *string `json:"dialog_id"`
+	// Запуск сценария автоматизации (run_…); null — не автоматизация
+	RunID *string `json:"run_id"`
+	// Откуда документ: chat — из разговора с ИИ; statement — из выписки банка (загруженной, разобранной в чате или DirectBank); esf — из входящих ЭСФ; automation — собран запуском сценария автоматизации (что бы он ни разбирал)
+	Source ProposalOriginSource `json:"source"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ProposalOrigin) UnmarshalJSON(data []byte) error {
+	type plain ProposalOrigin
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ProposalOrigin) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ProposalOrigin) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "batch_id", "dialog_id", "run_id", "source")
+}
+
+// ProposalOriginSource: Откуда документ: chat — из разговора с ИИ; statement — из выписки банка (загруженной, разобранной в чате или DirectBank); esf — из входящих ЭСФ; automation — собран запуском сценария автоматизации (что бы он ни разбирал)
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ProposalOriginSource string
+
+// Known values of ProposalOriginSource.
+const (
+	// ProposalOriginSourceChat is the value "chat".
+	ProposalOriginSourceChat ProposalOriginSource = "chat"
+	// ProposalOriginSourceStatement is the value "statement".
+	ProposalOriginSourceStatement ProposalOriginSource = "statement"
+	// ProposalOriginSourceESF is the value "esf".
+	ProposalOriginSourceESF ProposalOriginSource = "esf"
+	// ProposalOriginSourceAutomation is the value "automation".
+	ProposalOriginSourceAutomation ProposalOriginSource = "automation"
+)
 
 // ProposalPage: Страница очереди предложений, свежие сверху
 type ProposalPage struct {
-	// Сколько предложений в каждом статусе (ключ — ProposalStatus), без учёта фильтра — для бейджей вкладок; статусов без предложений нет
+	// Сколько предложений ждёт решения по просьбе («Отправить на одобрение») — в тех же пределах, что counts
+	ApprovalRequestedCount int64 `json:"approval_requested_count"`
+	// Сколько предложений в каждом статусе (ключ — ProposalStatus) — для бейджей вкладок; статусов без предложений нет. Считается в пределах source и batch_id (откуда и из какой пачки), остальные фильтры (status, kind, даты, q…
 	Counts map[string]float64 `json:"counts"`
 	// Предложения страницы, свежие сверху
 	Data []ProposalListItem `json:"data"`
@@ -14088,7 +15549,7 @@ func (v ProposalPage) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ProposalPage) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "counts", "data", "next_cursor", "total")
+	return extraFields(v.raw, "approval_requested_count", "counts", "data", "next_cursor", "total")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -15385,16 +16846,20 @@ func (v TaxPeriodRef) ExtraFields() map[string]json.RawMessage {
 type UsageRate struct {
 	// Цена 1 млн токенов чтения из кэша модели в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	CacheReadPerMtokTiyn int64 `json:"cache_read_per_mtok_tiyn"`
-	// Цена 1 млн токенов записи в кэш модели в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
+	// Цена 1 млн токенов записи в кэш модели на 1 час (дороже: так кэшируются правила и инструменты) в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
+	CacheWrite1hPerMtokTiyn int64 `json:"cache_write_1h_per_mtok_tiyn"`
+	// Цена 1 млн токенов записи в кэш модели на 5 минут в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	CacheWritePerMtokTiyn int64 `json:"cache_write_per_mtok_tiyn"`
 	// С какого момента действует цена, ISO 8601 UTC
 	EffectiveFrom string `json:"effective_from"`
 	// Цена 1 млн входных токенов (вопрос и контекст; токен — кусочек текста) в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	InputPerMtokTiyn int64 `json:"input_per_mtok_tiyn"`
-	// Модель ИИ (техническое имя)
+	// Модель ИИ: tungo-1-flash, tungo-1, tungo-1-deep (tungo-search — поиск по нормам, tungo-legacy — прежняя)
 	Model string `json:"model"`
 	// Цена 1 млн токенов ответа в тиынах (1 ₸ = 100 тиын; показывать значение / 100 ₸)
 	OutputPerMtokTiyn int64 `json:"output_per_mtok_tiyn"`
+	// Название модели для людей
+	Title string `json:"title"`
 
 	raw json.RawMessage
 }
@@ -15414,7 +16879,7 @@ func (v UsageRate) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v UsageRate) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "cache_read_per_mtok_tiyn", "cache_write_per_mtok_tiyn", "effective_from", "input_per_mtok_tiyn", "model", "output_per_mtok_tiyn")
+	return extraFields(v.raw, "cache_read_per_mtok_tiyn", "cache_write_1h_per_mtok_tiyn", "cache_write_per_mtok_tiyn", "effective_from", "input_per_mtok_tiyn", "model", "output_per_mtok_tiyn", "title")
 }
 
 // WebhookAttempt: Попытка доставить событие на адрес.

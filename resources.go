@@ -986,6 +986,68 @@ func (s *ChatService) CountTokens(ctx context.Context, body ChatTokenCountReques
 	return out, nil
 }
 
+// ChatListMentionsParams holds the query and header parameters of ChatService.ListMentions.
+type ChatListMentionsParams struct {
+	// Сколько на каждый вид: 1–20, по умолчанию 8
+	Limit *int64
+	// Что ищем: часть номера, названия, имени; у контрагента — от 2 знаков (или БИН цифрами). Пусто — свежие предложения и задания
+	Q *string
+	// Виды через запятую; по умолчанию все. `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, в…
+	Types *string
+}
+
+// ListMentions: Что можно упомянуть через «@»
+//
+// GET /v1/companies/{co}/chat/mentions
+//
+// Required permission: chat.use.
+func (s *ChatService) ListMentions(ctx context.Context, params *ChatListMentionsParams, opts ...Option) (*ChatMentionSearch, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/companies/{co}/chat/mentions",
+		auth:   authKey,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "limit", params.Limit)
+		addQuery(spec.query, "q", params.Q)
+		addQuery(spec.query, "types", params.Types)
+	}
+	out := new(ChatMentionSearch)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ChatListSuggestionsParams holds the query and header parameters of ChatService.ListSuggestions.
+type ChatListSuggestionsParams struct {
+	// Язык текстов — язык интерфейса кабинета. Не передан — язык ответов ИИ из профиля (`kk` — по-казахски, иначе по-русски)
+	Lang *ListCompanyChatSuggestionsLang
+}
+
+// ListSuggestions: Подсказки пустого чата
+//
+// GET /v1/companies/{co}/chat/suggestions
+//
+// Required permission: chat.use.
+func (s *ChatService) ListSuggestions(ctx context.Context, params *ChatListSuggestionsParams, opts ...Option) (*ChatSuggestions, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/companies/{co}/chat/suggestions",
+		auth:   authKey,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "lang", params.Lang)
+	}
+	out := new(ChatSuggestions)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Get: Разговор целиком
 //
 // GET /v1/companies/{co}/chat/{id}
@@ -1144,6 +1206,10 @@ type ProposalsService struct {
 
 // ProposalsListParams holds the query and header parameters of ProposalsService.List.
 type ProposalsListParams struct {
+	// true — только отправленные на одобрение и ещё не решённые; false — только остальные
+	ApprovalRequested *ListCompanyProposalsApprovalRequested
+	// Только документы одного задания пачки (bat_…) — тот же состав, что в сводке задания и у «Одобрить и отправить в 1С». Не id задания — 400; задания нет — пустой список
+	BatchID *string
 	// next_cursor из ответа прошлой страницы; без него — первая (самая свежая) страница. Остальные фильтры — те же, что у первой страницы.
 	//
 	// Leave it empty for the first page; Next and the auto-paging iterator fill it in.
@@ -1156,8 +1222,10 @@ type ProposalsListParams struct {
 	Kind *string
 	// Сколько на странице: 1–100, по умолчанию 20
 	Limit *int64
-	// Поиск без учёта регистра: номер предложения (P-…), номер документа 1С, контрагент (имя из превью), БИН/ИИН и другие реквизиты документа
+	// Поиск без учёта регистра: номер предложения (P-…), номер документа 1С, контрагент (имя из превью), БИН/ИИН, сумма (как пишут: «150 000,50» или 150000.5) и другие реквизиты документа
 	Q *string
+	// Только из этих источников (origin.source): один или несколько через запятую (chat, statement, esf, automation). Неизвестный — 400
+	Source *string
 	// Только в этих статусах: один или несколько через запятую (previewed, approved, rejected, committed, posted, verified, mismatch, failed); без него — все. Неизвестный — 400
 	Status *string
 }
@@ -1177,12 +1245,15 @@ func (s *ProposalsService) List(ctx context.Context, params *ProposalsListParams
 	}
 	if params != nil {
 		spec.query = url.Values{}
+		addQuery(spec.query, "approval_requested", params.ApprovalRequested)
+		addQuery(spec.query, "batch_id", params.BatchID)
 		addQuery(spec.query, "cursor", params.Cursor)
 		addQuery(spec.query, "date_from", params.DateFrom)
 		addQuery(spec.query, "date_to", params.DateTo)
 		addQuery(spec.query, "kind", params.Kind)
 		addQuery(spec.query, "limit", params.Limit)
 		addQuery(spec.query, "q", params.Q)
+		addQuery(spec.query, "source", params.Source)
 		addQuery(spec.query, "status", params.Status)
 	}
 	out := new(ProposalPage)
@@ -1294,6 +1365,30 @@ func (s *ProposalsService) Reject(ctx context.Context, id string, body RejectReq
 	}
 	spec.body, spec.hasBody = body, true
 	out := new(ProposalDecision)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RequestApproval: Отправить на одобрение
+//
+// POST /v1/companies/{co}/proposals/{id}/request-approval
+//
+// The body is optional: nil sends no body.
+//
+// Required permission: proposals.create.
+func (s *ProposalsService) RequestApproval(ctx context.Context, id string, body *ProposalApprovalRequestBody, opts ...Option) (*ProposalApprovalRequestResult, error) {
+	spec := requestSpec{
+		method:   "POST",
+		path:     "/v1/companies/{co}/proposals/{id}/request-approval",
+		pathArgs: []string{"id", id},
+		auth:     authKey,
+	}
+	if body != nil {
+		spec.body, spec.hasBody = body, true
+	}
+	out := new(ProposalApprovalRequestResult)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
