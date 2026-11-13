@@ -319,6 +319,89 @@ func newTurnError(detail ChatTurnError, requestID string) *TurnError {
 	return e
 }
 
+// StreamError reports that an event stream whose items are not chat events (Feed.ListEvents)
+// carried an `error` event: the server could not go on and ended the stream. It is yielded once
+// by Stream.Events, which then stops. The stream did not finish: reconnect (with LastEventID or
+// the cursor of the last item) to resume it.
+type StreamError struct {
+	// Code is the machine-readable reason, for example "feed_failed" ("" when the event had none).
+	Code string
+	// Message is the text for people.
+	Message string
+	// RequestID identifies the request for support: request_id of the event, else the
+	// x-request-id response header.
+	RequestID string
+	// Extra holds every other property of the event data.
+	Extra map[string]json.RawMessage
+	// Data is the raw data of the event.
+	Data []byte
+}
+
+func (e *StreamError) tungoError() {}
+
+// Error returns a one-line description with the code and the request id.
+func (e *StreamError) Error() string {
+	var b strings.Builder
+	b.WriteString("tungo: the stream reported an error")
+	if e.Code != "" {
+		fmt.Fprintf(&b, " (code %s)", e.Code)
+	}
+	if e.Message != "" {
+		b.WriteString(": " + e.Message)
+	}
+	if e.RequestID != "" {
+		fmt.Fprintf(&b, " [request id %s]", e.RequestID)
+	}
+	return b.String()
+}
+
+// newStreamError reads the data of an `error` event: {"error": "code", "message": ...} as the
+// contract sends it, or the API error envelope {"error": {"code", "message", ...}}. Data that is
+// neither still gives a StreamError.
+func newStreamError(data []byte, requestID string) *StreamError {
+	e := &StreamError{RequestID: requestID, Data: data}
+	var props map[string]json.RawMessage
+	if json.Unmarshal(data, &props) != nil {
+		e.Message = "the stream reported an error"
+		return e
+	}
+	text := func(raw json.RawMessage) string {
+		var s string
+		if json.Unmarshal(raw, &s) != nil {
+			return ""
+		}
+		return s
+	}
+	known := []string{"error", "message", "code", "request_id"}
+	if id := text(props["request_id"]); id != "" {
+		e.RequestID = id
+	}
+	e.Code, e.Message = text(props["code"]), text(props["message"])
+	if code := text(props["error"]); code != "" && e.Code == "" {
+		e.Code = code
+	} else if jsonKind(props["error"]) == "object" {
+		var inner map[string]json.RawMessage
+		_ = json.Unmarshal(props["error"], &inner)
+		if e.Code == "" {
+			e.Code = text(inner["code"])
+		}
+		if e.Message == "" {
+			e.Message = text(inner["message"])
+		}
+		e.Extra = extraFields(props["error"], "code", "message")
+	}
+	if e.Message == "" {
+		e.Message = "the stream reported an error"
+	}
+	for name, raw := range extraFields(json.RawMessage(data), known...) {
+		if e.Extra == nil {
+			e.Extra = map[string]json.RawMessage{}
+		}
+		e.Extra[name] = raw
+	}
+	return e
+}
+
 // KindOf returns the kind of an API error or of a failed chat turn found in err's chain, and ""
 // for any other error.
 func KindOf(err error) ErrorKind {

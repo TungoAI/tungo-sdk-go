@@ -1587,6 +1587,54 @@ func TestGetEventStreams(t *testing.T) {
 	}
 }
 
+// TestFeedStreamErrorEvent: an `error` event of the feed is the server giving up (the contract
+// says reconnect). It must surface as a *StreamError with the code and the message, after the
+// items before it and instead of a zero item, and end the iteration.
+func TestFeedStreamErrorEvent(t *testing.T) {
+	ctx := context.Background()
+	m := newMock(t, func(w http.ResponseWriter, r *http.Request, _ int) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("x-request-id", "req_feed")
+		_, _ = io.WriteString(w, "event: feed\ndata: {\"id\":\"f1\",\"cursor\":\"c1\",\"section\":\"done\",\"section_title\":\"s\",\"at\":\"2026-11-09T10:00:00Z\",\"title\":\"t\",\"actions\":[]}\n\n"+
+			"event: error\ndata: {\"error\":\"feed_failed\",\"message\":\"Лента недоступна\"}\n\n"+
+			"event: feed\ndata: {\"id\":\"f2\",\"cursor\":\"c2\",\"section\":\"done\",\"section_title\":\"s\",\"at\":\"2026-11-09T10:00:00Z\",\"title\":\"t\",\"actions\":[]}\n\n")
+	})
+	client := m.client(nil)
+	feed, err := client.Feed.ListEvents(ctx, &FeedListEventsParams{Once: Ptr("1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	var failure error
+	for item, err := range feed.Events() {
+		if err != nil {
+			failure = err
+			continue
+		}
+		ids = append(ids, item.ID)
+	}
+	if strings.Join(ids, ",") != "f1" {
+		t.Errorf("items %q, want only f1 before the error", ids)
+	}
+	var streamErr *StreamError
+	if !errors.As(failure, &streamErr) {
+		t.Fatalf("error %T %v, want *StreamError", failure, failure)
+	}
+	if streamErr.Code != "feed_failed" || streamErr.Message != "Лента недоступна" || streamErr.RequestID != "req_feed" {
+		t.Errorf("stream error %+v", streamErr)
+	}
+	var sdkErr Error
+	if !errors.As(failure, &sdkErr) || !strings.Contains(failure.Error(), "feed_failed") {
+		t.Errorf("not an SDK error or no code in %q", failure)
+	}
+
+	// The envelope form keeps its code and extra properties too.
+	e := newStreamError([]byte(`{"error":{"type":"api_error","code":"feed_failed","message":"m","retry":true},"request_id":"req_2"}`), "req_h")
+	if e.Code != "feed_failed" || e.Message != "m" || e.RequestID != "req_2" || string(e.Extra["retry"]) != "true" || string(e.Extra["type"]) != `"api_error"` {
+		t.Errorf("envelope stream error %+v", e)
+	}
+}
+
 func TestSSEVeryLongLine(t *testing.T) {
 	// A single data line of 9 MB must not fail ("token too long") nor be truncated.
 	long := strings.Repeat("я", 9<<20/2)

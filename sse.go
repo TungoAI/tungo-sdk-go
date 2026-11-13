@@ -182,6 +182,9 @@ type Stream[T any] struct {
 	// tagProperty names the discriminator of T when the SSE event name carries the same value
 	// ("type" for chat events); "" when T has none.
 	tagProperty string
+	// errorIsEvent is true when an `error` event is a variant of T (chat events). Otherwise an
+	// `error` event is a failure of the stream: Events yields a *StreamError and stops.
+	errorIsEvent bool
 }
 
 // streamCleanup releases the connection of a stream that was dropped without being closed.
@@ -304,7 +307,9 @@ func (s *Stream[T]) readError(err error) error {
 // Events yields the decoded events as they arrive. Heart-beats (events without data) are
 // skipped. An event whose data does not decode is yielded as a *DecodeError and the iteration
 // continues with the next event; a transport failure is yielded once and ends the iteration.
-// The connection is closed when the loop ends or is left.
+// In a stream of items (not chat events) an `error` event is the server giving up: it is yielded
+// as a *StreamError and ends the iteration, so a broken stream never looks like one that ended
+// normally; reconnect to resume. The connection is closed when the loop ends or is left.
 func (s *Stream[T]) Events() iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var zero T
@@ -315,6 +320,10 @@ func (s *Stream[T]) Events() iter.Seq2[T, error] {
 			}
 			if ev.Data == "" {
 				continue // heart-beat ("ping")
+			}
+			if ev.Event == "error" && !s.errorIsEvent {
+				yield(zero, newStreamError([]byte(ev.Data), s.call.resp.Header.Get("x-request-id")))
+				return
 			}
 			var v T
 			if err := json.Unmarshal(taggedEventData(ev, s.tagProperty), &v); err != nil {
@@ -344,6 +353,7 @@ func openChatStream(ctx context.Context, c *Client, spec *requestSpec, opts []Op
 		return nil, err
 	}
 	s.tagProperty = "type"
+	s.errorIsEvent = true
 	return &ChatStream{Stream: s}, nil
 }
 

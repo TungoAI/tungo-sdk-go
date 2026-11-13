@@ -40,8 +40,8 @@
 // Every error returned by this package implements Error. Use errors.As with
 // *APIError (an HTTP error response; its Kind is the error.type of the API),
 // *ConnectionError, *TimeoutError, *DecodeError, *ConfigError,
-// *ValidationError, *PaginationError, *TurnError or
-// *WebhookVerificationError. Cancelling the context of a call surfaces as an
+// *ValidationError, *PaginationError, *TurnError, *StreamError (an error
+// event of the feed stream: reconnect) or *WebhookVerificationError. Cancelling the context of a call surfaces as an
 // error that wraps context.Canceled.
 //
 // # Retries and timeouts
