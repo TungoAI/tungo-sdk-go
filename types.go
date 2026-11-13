@@ -1774,6 +1774,26 @@ const (
 	AuditEntryActionAdminWorkspaceKindChanged AuditEntryAction = "admin.workspace.kind_changed"
 	// AuditEntryActionAdminWorkspaceContractSeats is the value "admin.workspace.contract_seats".
 	AuditEntryActionAdminWorkspaceContractSeats AuditEntryAction = "admin.workspace.contract_seats"
+	// AuditEntryActionAdminPlanGrantCreated is the value "admin.plan_grant.created".
+	AuditEntryActionAdminPlanGrantCreated AuditEntryAction = "admin.plan_grant.created"
+	// AuditEntryActionAdminPlanGrantExtended is the value "admin.plan_grant.extended".
+	AuditEntryActionAdminPlanGrantExtended AuditEntryAction = "admin.plan_grant.extended"
+	// AuditEntryActionAdminPlanGrantRevoked is the value "admin.plan_grant.revoked".
+	AuditEntryActionAdminPlanGrantRevoked AuditEntryAction = "admin.plan_grant.revoked"
+	// AuditEntryActionAdminPlanGrantEnded is the value "admin.plan_grant.ended".
+	AuditEntryActionAdminPlanGrantEnded AuditEntryAction = "admin.plan_grant.ended"
+	// AuditEntryActionAdminPlatformDiscountCreated is the value "admin.platform_discount.created".
+	AuditEntryActionAdminPlatformDiscountCreated AuditEntryAction = "admin.platform_discount.created"
+	// AuditEntryActionAdminPlatformDiscountRevoked is the value "admin.platform_discount.revoked".
+	AuditEntryActionAdminPlatformDiscountRevoked AuditEntryAction = "admin.platform_discount.revoked"
+	// AuditEntryActionAdminSubscriptionCancelled is the value "admin.subscription.cancelled".
+	AuditEntryActionAdminSubscriptionCancelled AuditEntryAction = "admin.subscription.cancelled"
+	// AuditEntryActionAdminSubscriptionResumed is the value "admin.subscription.resumed".
+	AuditEntryActionAdminSubscriptionResumed AuditEntryAction = "admin.subscription.resumed"
+	// AuditEntryActionAdminMoneyExported is the value "admin.money.exported".
+	AuditEntryActionAdminMoneyExported AuditEntryAction = "admin.money.exported"
+	// AuditEntryActionAdminPaymentSearchPdViewed is the value "admin.payment_search.pd_viewed".
+	AuditEntryActionAdminPaymentSearchPdViewed AuditEntryAction = "admin.payment_search.pd_viewed"
 	// AuditEntryActionWorkspaceSsoProviderCreated is the value "workspace.sso_provider_created".
 	AuditEntryActionWorkspaceSsoProviderCreated AuditEntryAction = "workspace.sso_provider_created"
 	// AuditEntryActionWorkspaceGroupCreated is the value "workspace.group_created".
@@ -1900,6 +1920,12 @@ const (
 	AuditEntryActionAccountDeletionCancelled AuditEntryAction = "account.deletion_cancelled"
 	// AuditEntryActionAccountDeleted is the value "account.deleted".
 	AuditEntryActionAccountDeleted AuditEntryAction = "account.deleted"
+	// AuditEntryActionLangfuseTracesPurged is the value "langfuse.traces_purged".
+	AuditEntryActionLangfuseTracesPurged AuditEntryAction = "langfuse.traces_purged"
+	// AuditEntryActionAdminDialogLangfuseDataset is the value "admin.dialog.langfuse_dataset".
+	AuditEntryActionAdminDialogLangfuseDataset AuditEntryAction = "admin.dialog.langfuse_dataset"
+	// AuditEntryActionAdminDialogLangfuseAnnotation is the value "admin.dialog.langfuse_annotation".
+	AuditEntryActionAdminDialogLangfuseAnnotation AuditEntryAction = "admin.dialog.langfuse_annotation"
 	// AuditEntryActionAccountEmailCodeSent is the value "account.email_code_sent".
 	AuditEntryActionAccountEmailCodeSent AuditEntryAction = "account.email_code_sent"
 	// AuditEntryActionAccountEmailBound is the value "account.email_bound".
@@ -1964,6 +1990,8 @@ const (
 	AuditEntryActionAdminLogsPurged AuditEntryAction = "admin.logs.purged"
 	// AuditEntryActionAdminDialogPdViewed is the value "admin.dialog.pd_viewed".
 	AuditEntryActionAdminDialogPdViewed AuditEntryAction = "admin.dialog.pd_viewed"
+	// AuditEntryActionAdminDialogRatingCommentsViewed is the value "admin.dialog.rating_comments_viewed".
+	AuditEntryActionAdminDialogRatingCommentsViewed AuditEntryAction = "admin.dialog.rating_comments_viewed"
 	// AuditEntryActionAdminDialogLabelSet is the value "admin.dialog.label_set".
 	AuditEntryActionAdminDialogLabelSet AuditEntryAction = "admin.dialog.label_set"
 	// AuditEntryActionAdminDialogLabelRemoved is the value "admin.dialog.label_removed".
@@ -1986,6 +2014,30 @@ const (
 	AuditEntryActionSiteLegalPublished AuditEntryAction = "site.legal_published"
 	// AuditEntryActionSiteTrackersSaved is the value "site.trackers_saved".
 	AuditEntryActionSiteTrackersSaved AuditEntryAction = "site.trackers_saved"
+	// AuditEntryActionHelpSectionCreated is the value "help.section_created".
+	AuditEntryActionHelpSectionCreated AuditEntryAction = "help.section_created"
+	// AuditEntryActionHelpSectionUpdated is the value "help.section_updated".
+	AuditEntryActionHelpSectionUpdated AuditEntryAction = "help.section_updated"
+	// AuditEntryActionHelpSectionDeleted is the value "help.section_deleted".
+	AuditEntryActionHelpSectionDeleted AuditEntryAction = "help.section_deleted"
+	// AuditEntryActionHelpArticleCreated is the value "help.article_created".
+	AuditEntryActionHelpArticleCreated AuditEntryAction = "help.article_created"
+	// AuditEntryActionHelpArticleUpdated is the value "help.article_updated".
+	AuditEntryActionHelpArticleUpdated AuditEntryAction = "help.article_updated"
+	// AuditEntryActionHelpArticleDeleted is the value "help.article_deleted".
+	AuditEntryActionHelpArticleDeleted AuditEntryAction = "help.article_deleted"
+	// AuditEntryActionHelpReordered is the value "help.reordered".
+	AuditEntryActionHelpReordered AuditEntryAction = "help.reordered"
+	// AuditEntryActionSupportTicketCreated is the value "support.ticket_created".
+	AuditEntryActionSupportTicketCreated AuditEntryAction = "support.ticket_created"
+	// AuditEntryActionAdminSupportReplied is the value "admin.support.replied".
+	AuditEntryActionAdminSupportReplied AuditEntryAction = "admin.support.replied"
+	// AuditEntryActionAdminSupportNoteAdded is the value "admin.support.note_added".
+	AuditEntryActionAdminSupportNoteAdded AuditEntryAction = "admin.support.note_added"
+	// AuditEntryActionAdminSupportTicketUpdated is the value "admin.support.ticket_updated".
+	AuditEntryActionAdminSupportTicketUpdated AuditEntryAction = "admin.support.ticket_updated"
+	// AuditEntryActionAdminSupportAttachmentViewed is the value "admin.support.attachment_viewed".
+	AuditEntryActionAdminSupportAttachmentViewed AuditEntryAction = "admin.support.attachment_viewed"
 	// AuditEntryActionCanaryTriggered is the value "canary.triggered".
 	AuditEntryActionCanaryTriggered AuditEntryAction = "canary.triggered"
 	// AuditEntryActionBillingPaymentNew is the value "billing.payment.new".
@@ -6897,6 +6949,8 @@ type ChatAssistantMessage struct {
 	NextAction *ChatNextAction `json:"next_action"`
 	// Номера предложений этого хода — то же, что proposal-блоки, списком
 	ProposalIDs []string `json:"proposal_ids"`
+	// Оценка этого ответа человеком; null — не оценён
+	Rating *ChatMessageRating `json:"rating"`
 	// Ответ ИИ
 	//
 	// Always "assistant"; filled in automatically when the value is encoded.
@@ -6905,6 +6959,8 @@ type ChatAssistantMessage struct {
 	State ChatAssistantMessageState `json:"state"`
 	// Размышления модели за ход одним текстом; пусто — не было
 	Thinking string `json:"thinking"`
+	// Номер ответа в разговоре (он же X-Turn-No и средняя часть id): по нему ответ оценивают — PUT …/chat/{id}/messages/{turn}/rating
+	TurnNo int64 `json:"turn_no"`
 
 	raw json.RawMessage
 }
@@ -6924,7 +6980,7 @@ func (v ChatAssistantMessage) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatAssistantMessage) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "at", "blocks", "citations", "followups", "id", "next_action", "proposal_ids", "role", "state", "thinking")
+	return extraFields(v.raw, "at", "blocks", "citations", "followups", "id", "next_action", "proposal_ids", "rating", "role", "state", "thinking", "turn_no")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -7128,15 +7184,35 @@ func (v ChatChoiceQuestion) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// ChatCitation: Источник ответа: норма закона, статья базы знаний
+// ChatCitation: Источник ответа: норма закона, статья базы знаний. Список источников — по порядку первой ссылки в тексте ответа, без повторов. В самом тексте ответа списка источников нет: только короткие ссылки по месту («(НК РК, ст. 44…
 type ChatCitation struct {
-	// Редакция нормы (на какую дату)
+	// Номер статьи
+	Article *string `json:"article,omitempty"`
+	// Номер главы — у источников без статей
+	Chapter *string `json:"chapter,omitempty"`
+	// Документ коротко: принятое сокращение, если оно есть в базе («НК РК»), иначе название обычным регистром («Социальный кодекс Республики Казахстан»)
+	Document string `json:"document"`
+	// Редакция нормы словами
 	Edition *string `json:"edition,omitempty"`
-	// Откуда: код нормы или статьи базы знаний
+	// Дата начала редакции, ГГГГ-ММ-ДД
+	EditionDate *string `json:"edition_date,omitempty"`
+	// Заголовок статьи без «Статья N.» — вторая строка чипа или подсказка
+	Heading *string `json:"heading,omitempty"`
+	// Короткая подпись для чипа: документ и место в нём, без редакции и пометок
+	Label string `json:"label"`
+	// Как источник назван в тексте ответа — дословные куски текста («ст. 445», «статьи 445»): их можно сделать ссылкой на этот источник. Только в итоге хода и в истории, в событии потока поля нет. Поля нет и тогда, когда стать…
+	Mentions []string `json:"mentions,omitzero"`
+	// Пометка о статусе или природе источника — показывать обязательно: «УТРАТИЛА СИЛУ с 01.01.2026», «по разъяснению КГД», «позиция органа (не норма права)»
+	Note *string `json:"note,omitempty"`
+	// Номер пункта
+	Point *string `json:"point,omitempty"`
+	// Подпись целиком, как раньше: документ, место, редакция и пометки одной строкой. Для показа удобнее label, edition и note по отдельности
 	Source string `json:"source"`
-	// Название источника для показа
+	// Номер подпункта
+	Subpoint *string `json:"subpoint,omitempty"`
+	// Заголовок статьи целиком, с «Статья N.» (как раньше). Без номера — heading
 	Title string `json:"title"`
-	// Ссылка на текст источника, если есть
+	// Ссылка на текст источника: по ней источник открывают. Она же — ключ источника внутри ответа
 	URL *string `json:"url,omitempty"`
 
 	raw json.RawMessage
@@ -7157,7 +7233,7 @@ func (v ChatCitation) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatCitation) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "edition", "source", "title", "url")
+	return extraFields(v.raw, "article", "chapter", "document", "edition", "edition_date", "heading", "label", "mentions", "note", "point", "source", "subpoint", "title", "url")
 }
 
 // ChatDialog: Разговор целиком
@@ -7178,6 +7254,10 @@ type ChatDialog struct {
 	Messages []ChatMessage `json:"messages"`
 	// false — персональные данные не раскрыты (сменился ключ шифрования): вместо БИН, имён и счетов в тексте метки вида «[ПД-БИН-1]». Показать предупреждение
 	PdRestored bool `json:"pd_restored"`
+	// Оценка разговора человеком; null — не оценён
+	Rating *ChatDialogRating `json:"rating"`
+	// true — пора предложить человеку оценить разговор (форма 1–5 с комментарием). Решает ядро по настройке: достаточно ответов ИИ в разговоре, разговор не оценён, человек не нажимал «не сейчас», и ему не предлагали в последни…
+	RatingPrompt bool `json:"rating_prompt"`
 	// true — идёт ход: дочитать его потоком GET …/chat/{id}/events?turn=<turn>
 	Running bool `json:"running"`
 	// Название одной строкой: человека, иначе от ИИ, иначе первый вопрос. Откуда оно — title_source
@@ -7207,7 +7287,7 @@ func (v ChatDialog) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatDialog) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "awaiting", "closed", "created_at", "id", "masked", "message_count", "messages", "pd_restored", "running", "title", "title_source", "turn", "updated_at")
+	return extraFields(v.raw, "awaiting", "closed", "created_at", "id", "masked", "message_count", "messages", "pd_restored", "rating", "rating_prompt", "running", "title", "title_source", "turn", "updated_at")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -7382,6 +7462,96 @@ func (v ChatDialogPatch) RawJSON() string { return string(v.raw) }
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatDialogPatch) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "title")
+}
+
+// ChatDialogRated: Оценка разговора после изменения
+type ChatDialogRated struct {
+	// id разговора (обычно UUID): по нему продолжают разговор (dialog_id), открывают его GET …/chat/{id} и стирают
+	ID string `json:"id"`
+	// Rating is the "rating" property.
+	Rating ChatDialogRating `json:"rating"`
+	// Всегда false: предлагать больше не нужно
+	//
+	// Always "false"; filled in automatically when the value is encoded.
+	RatingPrompt bool `json:"rating_prompt"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatDialogRated) UnmarshalJSON(data []byte) error {
+	type plain ChatDialogRated
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatDialogRated) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatDialogRated) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "id", "rating", "rating_prompt")
+}
+
+// ChatDialogRating: Оценка разговора человеком
+type ChatDialogRating struct {
+	// Когда оценка поставлена или изменена, ISO 8601 UTC
+	At string `json:"at"`
+	// Комментарий человека; null — без комментария
+	Comment *string `json:"comment"`
+	// Оценка разговора: от 1 (плохо) до 5 (отлично)
+	Score int64 `json:"score"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatDialogRating) UnmarshalJSON(data []byte) error {
+	type plain ChatDialogRating
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatDialogRating) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatDialogRating) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "at", "comment", "score")
+}
+
+// ChatDialogRatingBody: Оценка разговора
+type ChatDialogRatingBody struct {
+	// Комментарий человека, необязательный; предел длины — comment_chars из GET …/chat/rating-options
+	Comment Nullable[string] `json:"comment,omitzero"`
+	// Оценка разговора: от 1 (плохо) до 5 (отлично). Повторная оценка заменяет прежнюю
+	Score int64 `json:"score"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatDialogRatingBody) UnmarshalJSON(data []byte) error {
+	type plain ChatDialogRatingBody
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatDialogRatingBody) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatDialogRatingBody) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "comment", "score")
 }
 
 // ChatDialogRenamed: Разговор с новым названием
@@ -7795,19 +7965,37 @@ func (v ChatEventChoice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-// ChatEventCitation: Источник ответа: норма закона, статья базы знаний
+// ChatEventCitation: Источник ответа: норма закона, статья базы знаний. Приходят по порядку первой ссылки в тексте, каждый источник один раз за ход. Вопросы-продолжения — отдельное событие next
 type ChatEventCitation struct {
-	// Редакция нормы
+	// Номер статьи
+	Article *string `json:"article,omitempty"`
+	// Номер главы — у источников без статей
+	Chapter *string `json:"chapter,omitempty"`
+	// Документ коротко: принятое сокращение, если оно есть в базе («НК РК»), иначе название обычным регистром («Социальный кодекс Республики Казахстан»)
+	Document string `json:"document"`
+	// Редакция нормы словами
 	Edition *string `json:"edition,omitempty"`
-	// Откуда: код нормы или статьи базы знаний
+	// Дата начала редакции, ГГГГ-ММ-ДД
+	EditionDate *string `json:"edition_date,omitempty"`
+	// Заголовок статьи без «Статья N.» — вторая строка чипа или подсказка
+	Heading *string `json:"heading,omitempty"`
+	// Короткая подпись для чипа: документ и место в нём, без редакции и пометок
+	Label string `json:"label"`
+	// Пометка о статусе или природе источника — показывать обязательно: «УТРАТИЛА СИЛУ с 01.01.2026», «по разъяснению КГД», «позиция органа (не норма права)»
+	Note *string `json:"note,omitempty"`
+	// Номер пункта
+	Point *string `json:"point,omitempty"`
+	// Подпись целиком, как раньше: документ, место, редакция и пометки одной строкой. Для показа удобнее label, edition и note по отдельности
 	Source string `json:"source"`
-	// Название источника
+	// Номер подпункта
+	Subpoint *string `json:"subpoint,omitempty"`
+	// Заголовок статьи целиком, с «Статья N.» (как раньше). Без номера — heading
 	Title string `json:"title"`
 	// Вид события: citation
 	//
 	// Always "citation"; filled in automatically when the value is encoded.
 	Type string `json:"type"`
-	// Ссылка на текст источника
+	// Ссылка на текст источника: по ней источник открывают. Она же — ключ источника внутри ответа
 	URL *string `json:"url,omitempty"`
 
 	raw json.RawMessage
@@ -7828,7 +8016,7 @@ func (v ChatEventCitation) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatEventCitation) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "edition", "source", "title", "type", "url")
+	return extraFields(v.raw, "article", "chapter", "document", "edition", "edition_date", "heading", "label", "note", "point", "source", "subpoint", "title", "type", "url")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -7849,6 +8037,10 @@ type ChatEventDone struct {
 	ChoiceID *string `json:"choice_id,omitempty"`
 	// Сколько ход стоил, в тиынах (1 ₸ = 100 тиын). Только в потоке для ключа API (платформа разработчиков); кабинету стоимость ответа не отдаётся
 	CostTiyn *int64 `json:"cost_tiyn,omitempty"`
+	// Пора предложить человеку оценить разговор — те же правила, что у rating_prompt в GET …/chat/{id}. Поля нет — не предлагать. Ключу API не приходит
+	//
+	// When present it is always "true".
+	RatingPrompt *bool `json:"rating_prompt,omitempty"`
 	// Чем кончился ход: end_turn — ответ готов; awaiting_user — ждёт ответа на вопрос choice; budget — кончился лимит; aborted — остановили; refusal — модель отказалась; context_overflow — разговор слишком длинный; max_iterati…
 	StopReason *string `json:"stop_reason,omitempty"`
 	// Вид события: done
@@ -7876,7 +8068,7 @@ func (v ChatEventDone) RawJSON() string { return string(v.raw) }
 
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatEventDone) ExtraFields() map[string]json.RawMessage {
-	return extraFields(v.raw, "answer", "choice_id", "cost_tiyn", "stop_reason", "type", "usage")
+	return extraFields(v.raw, "answer", "choice_id", "cost_tiyn", "rating_prompt", "stop_reason", "type", "usage")
 }
 
 // MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
@@ -9109,6 +9301,126 @@ func (u *ChatMessage) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ChatMessageRated: Оценка ответа после изменения
+type ChatMessageRated struct {
+	// id разговора (обычно UUID): по нему продолжают разговор (dialog_id), открывают его GET …/chat/{id} и стирают
+	DialogID string `json:"dialog_id"`
+	// id сообщения в истории
+	MessageID string `json:"message_id"`
+	// Оценка теперь; null — снята
+	Rating *ChatMessageRating `json:"rating"`
+	// Номер ответа
+	TurnNo int64 `json:"turn_no"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMessageRated) UnmarshalJSON(data []byte) error {
+	type plain ChatMessageRated
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMessageRated) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMessageRated) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "dialog_id", "message_id", "rating", "turn_no")
+}
+
+// ChatMessageRating: Оценка ответа ИИ человеком
+type ChatMessageRating struct {
+	// Когда оценка поставлена или изменена, ISO 8601 UTC
+	At string `json:"at"`
+	// Комментарий человека; null — без комментария
+	Comment *string `json:"comment"`
+	// Причина оценки down — ключ из GET …/chat/rating-options; null — не указана или оценка up
+	Reason *string `json:"reason"`
+	// up — палец вверх, down — палец вниз
+	Vote ChatMessageRatingVote `json:"vote"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMessageRating) UnmarshalJSON(data []byte) error {
+	type plain ChatMessageRating
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMessageRating) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMessageRating) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "at", "comment", "reason", "vote")
+}
+
+// ChatMessageRatingBody: Оценка ответа
+type ChatMessageRatingBody struct {
+	// Комментарий человека, необязательный; предел длины — comment_chars из GET …/chat/rating-options
+	Comment Nullable[string] `json:"comment,omitzero"`
+	// Причина оценки down — ключ из GET …/chat/rating-options; можно прислать позже повторным PUT. У оценки up причины нет
+	Reason Nullable[string] `json:"reason,omitzero"`
+	// up — ответ хороший, down — плохой. Повторная оценка того же ответа заменяет прежнюю
+	Vote ChatMessageRatingBodyVote `json:"vote"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatMessageRatingBody) UnmarshalJSON(data []byte) error {
+	type plain ChatMessageRatingBody
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatMessageRatingBody) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatMessageRatingBody) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "comment", "reason", "vote")
+}
+
+// ChatMessageRatingBodyVote: up — ответ хороший, down — плохой. Повторная оценка того же ответа заменяет прежнюю
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMessageRatingBodyVote string
+
+// Known values of ChatMessageRatingBodyVote.
+const (
+	// ChatMessageRatingBodyVoteUp is the value "up".
+	ChatMessageRatingBodyVoteUp ChatMessageRatingBodyVote = "up"
+	// ChatMessageRatingBodyVoteDown is the value "down".
+	ChatMessageRatingBodyVoteDown ChatMessageRatingBodyVote = "down"
+)
+
+// ChatMessageRatingVote: up — палец вверх, down — палец вниз
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ChatMessageRatingVote string
+
+// Known values of ChatMessageRatingVote.
+const (
+	// ChatMessageRatingVoteUp is the value "up".
+	ChatMessageRatingVoteUp ChatMessageRatingVote = "up"
+	// ChatMessageRatingVoteDown is the value "down".
+	ChatMessageRatingVoteDown ChatMessageRatingVote = "down"
+)
+
 // ChatMessageRequest: Вопрос ИИ-бухгалтеру
 type ChatMessageRequest struct {
 	// Файлы к вопросу. До 5 файлов, каждый до 10 МБ, все вместе до 14 МБ (до кодирования в base64). Картинка — до 5 МБ, PDF — до 100 страниц. Форматы (по расширению имени): .pdf, .jpg, .jpeg, .png, .webp, .docx, .xlsx, .xls, .…
@@ -9378,6 +9690,132 @@ func (v ChatQuestion) RawJSON() string { return string(v.raw) }
 // ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
 func (v ChatQuestion) ExtraFields() map[string]json.RawMessage {
 	return extraFields(v.raw, "proposal_id", "text")
+}
+
+// ChatRatingDismissed: Предложение оценить закрыто
+type ChatRatingDismissed struct {
+	// id разговора (обычно UUID): по нему продолжают разговор (dialog_id), открывают его GET …/chat/{id} и стирают
+	ID string `json:"id"`
+	// Всегда false
+	//
+	// Always "false"; filled in automatically when the value is encoded.
+	RatingPrompt bool `json:"rating_prompt"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatRatingDismissed) UnmarshalJSON(data []byte) error {
+	type plain ChatRatingDismissed
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatRatingDismissed) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatRatingDismissed) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "id", "rating_prompt")
+}
+
+// ChatRatingOptions: Настройки формы оценки
+type ChatRatingOptions struct {
+	// Предел длины комментария в знаках; 0 — поле комментария не показывать
+	CommentChars int64 `json:"comment_chars"`
+	// Шкала оценки разговора
+	DialogScores ChatRatingOptionsDialogScores `json:"dialog_scores"`
+	// Причины оценки «вниз», по порядку показа
+	Reasons []ChatRatingOptionsReasonItem `json:"reasons"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatRatingOptions) UnmarshalJSON(data []byte) error {
+	type plain ChatRatingOptions
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatRatingOptions) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatRatingOptions) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "comment_chars", "dialog_scores", "reasons")
+}
+
+// MarshalJSON encodes the object; constant fields are filled in and required lists and maps are never null.
+func (v ChatRatingOptions) MarshalJSON() ([]byte, error) {
+	type plain ChatRatingOptions
+	p := plain(v)
+	if p.Reasons == nil {
+		p.Reasons = []ChatRatingOptionsReasonItem{}
+	}
+	return json.Marshal(p)
+}
+
+// ChatRatingOptionsDialogScores: Шкала оценки разговора
+type ChatRatingOptionsDialogScores struct {
+	// Высшая оценка разговора
+	Max int64 `json:"max"`
+	// Низшая оценка разговора
+	Min int64 `json:"min"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatRatingOptionsDialogScores) UnmarshalJSON(data []byte) error {
+	type plain ChatRatingOptionsDialogScores
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatRatingOptionsDialogScores) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatRatingOptionsDialogScores) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "max", "min")
+}
+
+// ChatRatingOptionsReasonItem is a model of the API contract.
+type ChatRatingOptionsReasonItem struct {
+	// Ключ причины — его слать в reason
+	Key string `json:"key"`
+	// Название для показа
+	Title string `json:"title"`
+
+	raw json.RawMessage
+}
+
+// UnmarshalJSON decodes the object and keeps its JSON for RawJSON and ExtraFields.
+func (v *ChatRatingOptionsReasonItem) UnmarshalJSON(data []byte) error {
+	type plain ChatRatingOptionsReasonItem
+	if err := json.Unmarshal(data, (*plain)(v)); err != nil {
+		return err
+	}
+	v.raw = append(v.raw[:0], data...)
+	return nil
+}
+
+// RawJSON returns the JSON this value was decoded from; it is empty for a value built in code.
+func (v ChatRatingOptionsReasonItem) RawJSON() string { return string(v.raw) }
+
+// ExtraFields returns the properties of the decoded JSON that this SDK version has no field for.
+func (v ChatRatingOptionsReasonItem) ExtraFields() map[string]json.RawMessage {
+	return extraFields(v.raw, "key", "title")
 }
 
 // ChatStopResult: Итог «Стоп»
@@ -12909,6 +13347,19 @@ func (v ListCompanyAutomationsScenariosResponse) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(p)
 }
+
+// ListCompanyChatRatingOptionsLang: Язык названий причин; по умолчанию ru
+//
+// The set is open: a value this SDK version does not know is kept as it was received.
+type ListCompanyChatRatingOptionsLang string
+
+// Known values of ListCompanyChatRatingOptionsLang.
+const (
+	// ListCompanyChatRatingOptionsLangRu is the value "ru".
+	ListCompanyChatRatingOptionsLangRu ListCompanyChatRatingOptionsLang = "ru"
+	// ListCompanyChatRatingOptionsLangKk is the value "kk".
+	ListCompanyChatRatingOptionsLangKk ListCompanyChatRatingOptionsLang = "kk"
+)
 
 // ListCompanyChatSuggestionsLang: Язык текстов — язык интерфейса кабинета. Не передан — язык ответов ИИ из профиля (`kk` — по-казахски, иначе по-русски)
 //

@@ -424,7 +424,7 @@ Complete programs live in [`examples/`](examples): [`quickstart`](examples/quick
 
 ## API reference
 
-Generated from the Tungo Platform API contract: **13 resources, 85 methods, 22 webhook event types**.
+Generated from the Tungo Platform API contract: **13 resources, 90 methods, 22 webhook event types**.
 
 | Resource | Description | Methods |
 | --- | --- | --- |
@@ -433,7 +433,7 @@ Generated from the Tungo Platform API contract: **13 resources, 85 methods, 22 w
 | `client.Platform` | Platform balance, ledger, usage reports, limits, audit log and model rates | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
 | `client.APIKeys` | The current API key and its usage statistics | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
 | `client.Webhooks` | Outgoing webhooks of an organisation (Svix): endpoints, event catalogue, deliveries and signature check | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | Conversations with the AI accountant: questions, streaming chat (SSE), token counting and history | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `Stop` |
+| `client.Chat` | Conversations with the AI accountant: questions, streaming chat (SSE), token counting and history | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` |
 | `client.Proposals` | Documents proposed by the AI accountant: review, approval for posting to 1C, and rejection | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
 | `client.Feed` | The company's feed of events and proposals (pages and a live SSE stream) | `Get / GetAll` · `ListEvents` |
 | `client.Batches` | Processing batches for bank statements, incoming e-invoices and DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |

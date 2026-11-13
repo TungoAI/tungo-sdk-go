@@ -1020,6 +1020,34 @@ func (s *ChatService) ListMentions(ctx context.Context, params *ChatListMentions
 	return out, nil
 }
 
+// ChatGetRatingOptionsParams holds the query and header parameters of ChatService.GetRatingOptions.
+type ChatGetRatingOptionsParams struct {
+	// Язык названий причин; по умолчанию ru
+	Lang *ListCompanyChatRatingOptionsLang
+}
+
+// GetRatingOptions: Что нужно форме оценки: причины «вниз» и предел комментария
+//
+// GET /v1/companies/{co}/chat/rating-options
+//
+// Required permission: chat.use.
+func (s *ChatService) GetRatingOptions(ctx context.Context, params *ChatGetRatingOptionsParams, opts ...Option) (*ChatRatingOptions, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/companies/{co}/chat/rating-options",
+		auth:   authKey,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "lang", params.Lang)
+	}
+	out := new(ChatRatingOptions)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatListSuggestionsParams holds the query and header parameters of ChatService.ListSuggestions.
 type ChatListSuggestionsParams struct {
 	// Язык текстов — язык интерфейса кабинета. Не передан — язык ответов ИИ из профиля (`kk` — по-казахски, иначе по-русски)
@@ -1176,6 +1204,84 @@ func (s *ChatService) ListEvents(ctx context.Context, id string, params *ChatLis
 		addQuery(spec.query, "turn", params.Turn)
 	}
 	return openChatStream(ctx, s.client, &spec, opts)
+}
+
+// RateMessage: Оценить ответ ИИ: палец вверх или вниз
+//
+// PUT /v1/companies/{co}/chat/{id}/messages/{turn}/rating
+//
+// Required permission: chat.use.
+func (s *ChatService) RateMessage(ctx context.Context, id string, turn string, body ChatMessageRatingBody, opts ...Option) (*ChatMessageRated, error) {
+	spec := requestSpec{
+		method:   "PUT",
+		path:     "/v1/companies/{co}/chat/{id}/messages/{turn}/rating",
+		pathArgs: []string{"id", id, "turn", turn},
+		auth:     authKey,
+	}
+	spec.body, spec.hasBody = body, true
+	out := new(ChatMessageRated)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteMessageRating: Снять свою оценку ответа
+//
+// DELETE /v1/companies/{co}/chat/{id}/messages/{turn}/rating
+//
+// Required permission: chat.use.
+func (s *ChatService) DeleteMessageRating(ctx context.Context, id string, turn string, opts ...Option) (*ChatMessageRated, error) {
+	spec := requestSpec{
+		method:   "DELETE",
+		path:     "/v1/companies/{co}/chat/{id}/messages/{turn}/rating",
+		pathArgs: []string{"id", id, "turn", turn},
+		auth:     authKey,
+	}
+	out := new(ChatMessageRated)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Rate: Оценить разговор целиком: от 1 до 5
+//
+// PUT /v1/companies/{co}/chat/{id}/rating
+//
+// Required permission: chat.use.
+func (s *ChatService) Rate(ctx context.Context, id string, body ChatDialogRatingBody, opts ...Option) (*ChatDialogRated, error) {
+	spec := requestSpec{
+		method:   "PUT",
+		path:     "/v1/companies/{co}/chat/{id}/rating",
+		pathArgs: []string{"id", id},
+		auth:     authKey,
+	}
+	spec.body, spec.hasBody = body, true
+	out := new(ChatDialogRated)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DismissRating: Не сейчас: закрыть предложение оценить разговор
+//
+// POST /v1/companies/{co}/chat/{id}/rating/dismiss
+//
+// Required permission: chat.use.
+func (s *ChatService) DismissRating(ctx context.Context, id string, opts ...Option) (*ChatRatingDismissed, error) {
+	spec := requestSpec{
+		method:   "POST",
+		path:     "/v1/companies/{co}/chat/{id}/rating/dismiss",
+		pathArgs: []string{"id", id},
+		auth:     authKey,
+	}
+	out := new(ChatRatingDismissed)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // Stop: Остановить ход или закрыть открытый вопрос

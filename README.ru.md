@@ -357,7 +357,7 @@ fmt.Println(half)                          // 29
 
 ## Справочник API
 
-Создано из контракта API платформы Tungo: **ресурсов — 13, методов — 85, типов событий вебхуков — 22**.
+Создано из контракта API платформы Tungo: **ресурсов — 13, методов — 90, типов событий вебхуков — 22**.
 
 | Ресурс | Описание | Методы |
 | --- | --- | --- |
@@ -366,7 +366,7 @@ fmt.Println(half)                          // 29
 | `client.Platform` | Баланс платформы, книга движений, отчёты о расходе, лимиты, аудит и тарифы моделей | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
 | `client.APIKeys` | Сведения о текущем ключе API и статистика его расхода | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
 | `client.Webhooks` | Исходящие вебхуки организации (Svix): адреса, каталог событий, доставки и проверка подписи | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `Stop` |
+| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` |
 | `client.Proposals` | Предложения документов ИИ-бухгалтера: просмотр, одобрение записи в 1С и отклонение | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
 | `client.Feed` | Лента событий и предложений компании (страницы и живой поток SSE) | `Get / GetAll` · `ListEvents` |
 | `client.Batches` | Пачки обработки банковских выписок, входящих ЭСФ и DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |

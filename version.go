@@ -10,7 +10,7 @@ const Version = "0.3.0" // x-release-version
 const ContractVersion = "0.1.0"
 
 // ContractHash is the SHA-256 of the API contract this SDK was generated from.
-const ContractHash = "72a34292e20222182e0160e45110fff544e1bd7ef7f8a0705e50b78e055b324d"
+const ContractHash = "13f40c73f118b8ee93c26451973dbb5e1a24e46c5c9649ca335c8a5ea6b65700"
 
 // DefaultBaseURL is the production API host used unless WithBaseURL or TUNGO_BASE_URL says otherwise.
 const DefaultBaseURL = "https://api.tungo.kz"
