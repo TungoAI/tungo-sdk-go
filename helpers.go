@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -30,8 +31,12 @@ func (c *Client) Ask(ctx context.Context, message string, opts ...Option) (*Chat
 // SendHookParams are the optional settings of Client.SendHook.
 type SendHookParams struct {
 	// Secret is the signing secret of the hook. When it is set, the request carries
-	// X-Signature: sha256=<hex HMAC-SHA256 of the exact bytes sent>.
+	// X-Signature: sha256=<hex HMAC-SHA256 of the exact bytes sent>, or the same value in
+	// SignatureHeader.
 	Secret string
+	// SignatureHeader is the header the hook reads its signature from: the signature_header it
+	// was created with. Empty means X-Signature.
+	SignatureHeader string
 	// EventID is the sender's id of the event (X-Event-Id): the API accepts an event with the
 	// same id only once.
 	EventID string
@@ -67,15 +72,39 @@ func (c *Client) SendHook(ctx context.Context, token string, payload any, params
 		if params.EventID != "" {
 			p.EventID = &params.EventID
 		}
+		header := params.SignatureHeader
+		if header != "" && !validHookSignatureHeader(header) {
+			return nil, &ValidationError{Param: "SignatureHeader", Message: "must be 1 to 64 Latin letters, digits or hyphens, like the hook's signature_header"}
+		}
 		if params.Secret != "" {
 			signature, err := SignHook(body, params.Secret)
 			if err != nil {
 				return nil, err
 			}
-			p.Signature = &signature
+			if header == "" || strings.EqualFold(header, "X-Signature") {
+				p.Signature = &signature
+			} else {
+				// The caller's options come first, so the computed signature wins over a stale
+				// header of the same name.
+				opts = append(append([]Option(nil), opts...), WithHeader(header, signature))
+			}
 		}
 	}
 	return c.Automations.PostHook(ctx, token, body, &p, opts...)
+}
+
+// validHookSignatureHeader reports whether name is a header name the API accepts as the
+// signature_header of a hook.
+func validHookSignatureHeader(name string) bool {
+	if len(name) == 0 || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 // UploadBankStatement uploads a bank statement for processing (Batches.CreateBankStatement).

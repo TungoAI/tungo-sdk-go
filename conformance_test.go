@@ -909,6 +909,40 @@ func TestConformanceChatStreamReplay(t *testing.T) {
 	}
 }
 
+// TestChatStreamReplayAfterARetriedAttempt is the usual way to receive a replay: the first attempt
+// of a stream call fails before its headers (a proxy 502) while the turn finishes, and the retry
+// with the same Idempotency-Key is answered with the stored ChatTurnResult.
+func TestChatStreamReplayAfterARetriedAttempt(t *testing.T) {
+	keys := make(chan string, 8)
+	var attempts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		keys <- r.Header.Get("Idempotency-Key")
+		if attempts.Add(1) == 1 {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Idempotent-Replayed", "true")
+		_, _ = io.WriteString(w, `{"dialog_id":"d_1","turn_no":2,"answer":"ok","proposals":[],"pending_question":null,"questions":[],"citations":[],"errors":[],"stop_reason":"end_turn"}`)
+	}))
+	defer srv.Close()
+	client := NewClient(WithAPIKey("k"), WithBaseURL(srv.URL), WithCompanyID("co_1"))
+	stream, err := client.Chat.CreateStream(context.Background(), ChatMessageRequest{Message: Ptr("?")})
+	if err != nil {
+		t.Fatalf("the replay must arrive as a stream, got %T %v", err, err)
+	}
+	turn, err := stream.Accumulate(nil)
+	if err != nil || turn.Text != "ok" {
+		t.Fatalf("turn %+v, err %v", turn, err)
+	}
+	if n := attempts.Load(); n != 2 {
+		t.Fatalf("%d attempts, want 2", n)
+	}
+	if first, second := <-keys, <-keys; first == "" || first != second {
+		t.Errorf("the retry must repeat the key: %q, %q", first, second)
+	}
+}
+
 // checkChatStream runs one chat stream case through Chat.CreateStream and Accumulate.
 func checkChatStream(t *testing.T, c vecChatStream) {
 	t.Helper()

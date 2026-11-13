@@ -204,6 +204,32 @@ func addQueryList[T any](q url.Values, name string, values []T) {
 }
 
 // newIdempotencyKey returns a random UUID (version 4) from the system CSPRNG.
+// bodyIdempotencyKey returns the idempotency_key field of a JSON object body (approving a
+// proposal documents it as the same as the header), trimmed like the API trims it, or "" when
+// there is none. The API prefers the header over the field, so a generated header would make
+// the caller's own key useless. A key that cannot travel in a header (outside printable ASCII)
+// is ignored here.
+func bodyIdempotencyKey(payload []byte) string {
+	if !bytes.Contains(payload, []byte("idempotency_key")) {
+		return ""
+	}
+	var object map[string]json.RawMessage
+	if json.Unmarshal(payload, &object) != nil {
+		return ""
+	}
+	var key string
+	if raw, ok := object["idempotency_key"]; !ok || json.Unmarshal(raw, &key) != nil {
+		return ""
+	}
+	key = strings.TrimSpace(key)
+	for i := 0; i < len(key); i++ {
+		if key[i] < 0x20 || key[i] > 0x7e {
+			return ""
+		}
+	}
+	return key
+}
+
 func newIdempotencyKey() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:]) // crypto/rand.Read never fails (it aborts the program instead)
@@ -350,6 +376,9 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 		}
 		if idempotencyKey == "" {
 			idempotencyKey = spec.defaultKey
+		}
+		if idempotencyKey == "" && spec.rawBody == nil {
+			idempotencyKey = bodyIdempotencyKey(payload)
 		}
 		if idempotencyKey == "" {
 			idempotencyKey = newIdempotencyKey()

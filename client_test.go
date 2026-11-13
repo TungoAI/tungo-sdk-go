@@ -572,6 +572,29 @@ func TestRequestBodies(t *testing.T) {
 		t.Errorf("empty optional body = %s", got)
 	}
 
+	// The documented body field idempotency_key is the Idempotency-Key: the API prefers the
+	// header, so a generated one would make a repeat of the same click a new approval.
+	for i := 0; i < 2; i++ {
+		if _, err := client.Proposals.Approve(ctx, "P-1", &ApproveRequest{IdempotencyKey: Ptr(" click-7 ")}); err != nil {
+			t.Fatal(err)
+		}
+		if got := m.last().Header.Get("Idempotency-Key"); got != "click-7" {
+			t.Errorf("approve with a body key sent Idempotency-Key %q", got)
+		}
+	}
+	if _, err := client.Proposals.Approve(ctx, "P-1", &ApproveRequest{IdempotencyKey: Ptr("click-7")}, WithIdempotencyKey("own")); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.last().Header.Get("Idempotency-Key"); got != "own" {
+		t.Errorf("an explicit key must win over the body field, got %q", got)
+	}
+	if _, err := client.Proposals.Approve(ctx, "P-1", &ApproveRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.last().Header.Get("Idempotency-Key"); len(got) != 36 {
+		t.Errorf("without a body key the key is generated, got %q", got)
+	}
+
 	// The non-streaming chat call says stream:false, whatever the caller put there.
 	if _, err := client.Chat.Create(ctx, ChatMessageRequest{Message: Ptr("привет \x01 \"q\""), Stream: Ptr(true)}); err != nil {
 		t.Fatal(err)
@@ -1882,6 +1905,17 @@ func TestSendHookAndPostHookBehaveIdentically(t *testing.T) {
 	var verr *ValidationError
 	if _, err := client.SendHook(ctx, "", payload, nil); !errors.As(err, &verr) {
 		t.Errorf("empty token: %v", err)
+	}
+
+	// A hook created with its own signature_header reads the signature only from that header.
+	if _, err := client.SendHook(ctx, "tok", payload, &SendHookParams{Secret: "s", SignatureHeader: "x-shop-signature"}, WithHeader("X-Shop-Signature", "stale")); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.last(); got.Header.Get("X-Signature") != "" || !VerifyHookSignature(got.Body, got.Header.Get("X-Shop-Signature"), "s") {
+		t.Errorf("own signature header: %v", got.Header)
+	}
+	if _, err := client.SendHook(ctx, "tok", payload, &SendHookParams{Secret: "s", SignatureHeader: "bad header"}); !errors.As(err, &verr) {
+		t.Errorf("invalid signature header: %v", err)
 	}
 }
 
