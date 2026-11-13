@@ -120,6 +120,12 @@ func (c *config) buildURL(spec *requestSpec) (string, error) {
 	if err != nil || base.Host == "" || (base.Scheme != "https" && base.Scheme != "http") {
 		return "", &ConfigError{Message: fmt.Sprintf("the base URL %q is not an absolute http(s) URL (WithBaseURL / TUNGO_BASE_URL)", c.baseURL)}
 	}
+	// The path is appended to the raw text: after a query or a fragment it would end up inside
+	// them and the call would go to the wrong endpoint. The value is not shown, as a query may
+	// hold a token of a gateway.
+	if base.RawQuery != "" || base.ForceQuery || base.Fragment != "" || strings.Contains(c.baseURL, "#") {
+		return "", &ConfigError{Message: "the base URL must not contain a query string or a fragment (WithBaseURL / TUNGO_BASE_URL)"}
+	}
 	var b strings.Builder
 	b.WriteString(strings.TrimRight(c.baseURL, "/"))
 	rest := spec.path
@@ -345,6 +351,9 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 	if err != nil {
 		return nil, err
 	}
+	if err := checkHeaderValues(&cfg, spec); err != nil {
+		return nil, err
+	}
 
 	var payload []byte
 	contentType := ""
@@ -517,6 +526,45 @@ func (c *config) roundTrip(req *http.Request) (*http.Response, error) {
 	return next(req)
 }
 
+// validHeaderValue reports whether net/http sends value: no control byte other than a tab.
+// net/http refuses any other one only inside Client.Do, where the failure would look like a
+// connection error and be retried.
+func validHeaderValue(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if b := value[i]; (b < 0x20 && b != '\t') || b == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+// checkHeaderValues refuses, before any attempt, a header value net/http would not send (for
+// example a key read from a file with its trailing newline). The messages name the header,
+// never the value.
+func checkHeaderValues(cfg *config, spec *requestSpec) error {
+	if spec.auth == authKey && !validHeaderValue(cfg.apiKey.get()) {
+		return &ConfigError{Message: "the API key contains a control character (for example a trailing newline): check WithAPIKey / TUNGO_API_KEY"}
+	}
+	if !validHeaderValue(cfg.idempotencyKey) {
+		return &ValidationError{Param: "WithIdempotencyKey", Message: "must not contain a control character such as a line break"}
+	}
+	for name, values := range cfg.header() {
+		for _, value := range values {
+			if !validHeaderValue(value) {
+				return &ConfigError{Message: fmt.Sprintf("the value of the header %q contains a control character such as a line break (WithHeader)", name)}
+			}
+		}
+	}
+	for name, values := range spec.header {
+		for _, value := range values {
+			if !validHeaderValue(value) {
+				return &ValidationError{Param: name, Message: "must not contain a control character such as a line break"}
+			}
+		}
+	}
+	return nil
+}
+
 // transportError classifies a failure of the HTTP exchange. cause is the cancellation cause of
 // the attempt's own context (errAttemptTimeout / errStreamIdle) or nil.
 func transportError(parent context.Context, op string, err error, cause error, limit time.Duration) error {
@@ -526,15 +574,15 @@ func transportError(parent context.Context, op string, err error, cause error, l
 	if errors.Is(cause, errAttemptTimeout) || errors.Is(cause, errStreamIdle) {
 		return &TimeoutError{Op: op, Limit: limit, Err: fmt.Errorf("%w: %w", context.DeadlineExceeded, cause)}
 	}
-	var netErr interface{ Timeout() bool }
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return &TimeoutError{Op: op, Err: err}
-	}
-	// *url.Error repeats the method and the URL; keep only its cause. The URL never holds the
-	// key, but the shorter message reads better.
+	// *url.Error repeats the method and the URL, and the path can hold a hook token: keep only
+	// its cause, for timeouts as well, so no error in the chain shows the URL.
 	var urlErr *url.Error
 	if errors.As(err, &urlErr) {
 		err = urlErr.Err
+	}
+	var netErr interface{ Timeout() bool }
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return &TimeoutError{Op: op, Err: err}
 	}
 	return &ConnectionError{Op: op, Err: err}
 }

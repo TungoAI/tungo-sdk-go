@@ -157,7 +157,7 @@ func TestMissingConfigurationFailsBeforeAnyRequest(t *testing.T) {
 	if !errors.As(err, &cfgErr) || !strings.Contains(err.Error(), "workspace") {
 		t.Errorf("missing workspace: got %T %v", err, err)
 	}
-	for _, bad := range []string{"api.tungo.kz", "ftp://x", "://"} {
+	for _, bad := range []string{"api.tungo.kz", "ftp://x", "://", m.srv.URL + "/?tenant=a", m.srv.URL + "/#frag", m.srv.URL + "/p?x=1", m.srv.URL + "?"} {
 		_, err = NewClient(WithBaseURL(bad), WithAPIKey("k")).Workspaces.List(ctx)
 		if !errors.As(err, &cfgErr) {
 			t.Errorf("base URL %q: want *ConfigError, got %T %v", bad, err, err)
@@ -287,6 +287,73 @@ func TestRedirectsAreNeverFollowed(t *testing.T) {
 	}
 	if n := stolen.Load(); n != 0 {
 		t.Errorf("the redirect target received %d request(s)", n)
+	}
+}
+
+func TestControlCharactersInHeadersFailBeforeAnyRequest(t *testing.T) {
+	m := newMock(t, respond(200, `{"data":[],"has_more":false,"next_cursor":null}`))
+	ctx := context.Background()
+	base := []Option{WithBaseURL(m.srv.URL), WithMaxRetries(2), WithWorkspaceID("ws_1"), WithCompanyID("co_1")}
+	var cfgErr *ConfigError
+	var valErr *ValidationError
+
+	started := time.Now()
+	_, err := NewClient(append(base, WithAPIKey("tg_abc\n"))...).Workspaces.List(ctx)
+	if !errors.As(err, &cfgErr) || isConnectionOrTimeout(err) || strings.Contains(err.Error(), "tg_abc") {
+		t.Errorf("key with a newline: want *ConfigError without the key, got %T %v", err, err)
+	}
+	if time.Since(started) > 200*time.Millisecond {
+		t.Errorf("a configuration error must not be retried with backoff (took %v)", time.Since(started))
+	}
+	_, err = NewClient(append(base, WithAPIKey(testKey), WithHeader("X-Note", "a\r\nX-Evil: 1"))...).Workspaces.List(ctx)
+	if !errors.As(err, &cfgErr) || !strings.Contains(err.Error(), "X-Note") || strings.Contains(err.Error(), "Evil") {
+		t.Errorf("header with CR/LF: want *ConfigError naming only the header, got %T %v", err, err)
+	}
+	_, err = NewClient(append(base, WithAPIKey(testKey))...).Workspaces.List(ctx, WithIdempotencyKey("k\n"))
+	if !errors.As(err, &valErr) {
+		t.Errorf("idempotency key with a newline: want *ValidationError, got %T %v", err, err)
+	}
+	_, err = NewClient(base...).SendHook(ctx, "tok", map[string]int{"a": 1}, &SendHookParams{EventID: "e\n1"})
+	if !errors.As(err, &valErr) || isConnectionOrTimeout(err) {
+		t.Errorf("event id with a newline: want *ValidationError, got %T %v", err, err)
+	}
+	if n := len(m.requests()); n != 0 {
+		t.Errorf("%d requests were sent with invalid header values", n)
+	}
+}
+
+func TestTimeoutErrorsNeverCarryTheHookToken(t *testing.T) {
+	const token = "SECRETHOOKTOKEN123"
+	// A listener that accepts connections and never answers the TLS handshake.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func() { <-done; conn.Close() }()
+		}
+	}()
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSHandshakeTimeout = 200 * time.Millisecond
+	client := NewClient(WithBaseURL("https://"+listener.Addr().String()), WithMaxRetries(0),
+		WithHTTPClient(&http.Client{Transport: transport}))
+	_, err = client.SendHook(context.Background(), token, map[string]int{"a": 1}, nil)
+	var timeoutErr *TimeoutError
+	if !errors.As(err, &timeoutErr) {
+		t.Fatalf("want *TimeoutError, got %T %v", err, err)
+	}
+	for cause := err; cause != nil; cause = errors.Unwrap(cause) {
+		if text := cause.Error() + fmt.Sprintf(" %+v %#v", cause, cause); strings.Contains(text, token) {
+			t.Errorf("the error chain carries the hook token: %s", text)
+		}
 	}
 }
 
