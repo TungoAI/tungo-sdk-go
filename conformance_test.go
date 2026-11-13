@@ -253,6 +253,8 @@ type vecChatExpect struct {
 	Usage      map[string]any `json:"usage"`
 	ChoiceID   *string        `json:"choice_id"`
 	Error      *vecWireError  `json:"error"`
+	// Next is the followups and action of the next event the stream must yield, when set.
+	Next map[string]any `json:"next"`
 }
 
 func loadVectors(t *testing.T) *vectorsFile {
@@ -968,8 +970,20 @@ func checkChatStream(t *testing.T, c vecChatStream) {
 		t.Fatal(err)
 	}
 	var live []string
-	turn, err := stream.Accumulate(func(ev ChatEvent) { live = append(live, ev.Tag()) })
+	var nexts []map[string]any
+	turn, err := stream.Accumulate(func(ev ChatEvent) {
+		live = append(live, ev.Tag())
+		if ev.Tag() == "next" {
+			raw, _ := json.Marshal(ev)
+			var wire map[string]any
+			_ = json.Unmarshal(raw, &wire)
+			nexts = append(nexts, map[string]any{"followups": wire["followups"], "action": wire["action"]})
+		}
+	})
 	want := c.Expect
+	if want.Next != nil && !sameJSON(t, nexts, []map[string]any{want.Next}) {
+		t.Errorf("next events %v, want [%v]", nexts, want.Next)
+	}
 
 	// A stream that closes before its done event is not a finished turn: Accumulate still
 	// returns what arrived (checked below), together with an error.

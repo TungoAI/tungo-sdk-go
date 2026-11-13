@@ -653,8 +653,8 @@ func isReplayedJSON(h http.Header) bool {
 }
 
 // replayAsEventStream turns a replayed ChatTurnResult into the text/event-stream body of the turn
-// it stands for: text (the answer), proposal, question, citation, error and choice events, then
-// done. The dialog id and the turn number, which a replay carries only in the body, are set as the
+// it stands for: text (the answer), proposal, question, citation, error, choice and next events,
+// then done. The dialog id and the turn number, which a replay carries only in the body, are set as the
 // X-Dialog-Id and X-Turn-No headers of h when it lacks them.
 func replayAsEventStream(h http.Header, body []byte) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(body))
@@ -739,6 +739,20 @@ func replayAsEventStream(h http.Header, body []byte) ([]byte, error) {
 	if pending, ok := result["pending_question"].(map[string]any); ok {
 		emit(with("choice", pending, ""))
 		done["choice_id"] = pending["choice_id"]
+	}
+	// A live turn ends its finished answer with next right before done; the stored result keeps it
+	// as followups and next_action.
+	followups, _ := result["followups"].([]any)
+	action, hasAction := result["next_action"].(map[string]any)
+	if len(followups) > 0 || hasAction {
+		if followups == nil {
+			followups = []any{}
+		}
+		next := map[string]any{"type": "next", "followups": followups, "action": nil}
+		if hasAction {
+			next["action"] = action
+		}
+		emit(next)
 	}
 	emit(done)
 	return out.Bytes(), nil
