@@ -1996,6 +1996,13 @@ func TestWaitForBatch(t *testing.T) {
 	if got := string(m.last().Body); got != `{"file":"AQID","file_name":"s.pdf"}` {
 		t.Errorf("binary upload body %s", got)
 	}
+	// A cp1251 export ("Плат") is not UTF-8: it goes as the file, not as text full of U+FFFD.
+	if _, err := client.UploadBankStatement(ctx, "kl_to_1c.txt", []byte{0xCF, 0xEB, 0xE0, 0xF2}, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(m.last().Body); got != `{"file":"z+vg8g==","file_name":"kl_to_1c.txt"}` {
+		t.Errorf("cp1251 upload body %s", got)
+	}
 
 	// A batch without the running flag is not taken for finished.
 	m = newMock(t, respond(200, job("")))

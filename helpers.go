@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 )
 
 // Ask sends one message to the AI accountant and waits for the whole answer (Chat.Create with
@@ -78,11 +79,14 @@ func (c *Client) SendHook(ctx context.Context, token string, payload any, params
 }
 
 // UploadBankStatement uploads a bank statement for processing (Batches.CreateBankStatement).
-// A 1CClientBankExchange text file is sent as text; any other file is sent base64-encoded. Wait
+// With isText, UTF-8 content (a 1CClientBankExchange file already decoded) is sent as text; any
+// other file, and text that is not valid UTF-8 (a bank export in cp1251 or cp866 as read from
+// disk), is sent base64-encoded as it is, and the API decodes it by its Кодировка= header. Wait
 // for the result with WaitForBatch.
 func (c *Client) UploadBankStatement(ctx context.Context, fileName string, content []byte, isText bool, opts ...Option) (*BatchJob, error) {
 	req := BankStatementJobRequest{FileName: &fileName}
-	if isText {
+	// encoding/json would replace every byte that is not UTF-8 with U+FFFD, silently.
+	if isText && utf8.Valid(content) {
 		req.Text = Ptr(string(content))
 	} else {
 		req.File = Ptr(base64.StdEncoding.EncodeToString(content))
