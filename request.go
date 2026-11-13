@@ -209,7 +209,6 @@ func addQueryList[T any](q url.Values, name string, values []T) {
 	}
 }
 
-// newIdempotencyKey returns a random UUID (version 4) from the system CSPRNG.
 // bodyIdempotencyKey returns the idempotency_key field of a JSON object body (approving a
 // proposal documents it as the same as the header), trimmed like the API trims it, or "" when
 // there is none. The API prefers the header over the field, so a generated header would make
@@ -236,6 +235,7 @@ func bodyIdempotencyKey(payload []byte) string {
 	return key
 }
 
+// newIdempotencyKey returns a random UUID (version 4) from the system CSPRNG.
 func newIdempotencyKey() string {
 	var b [16]byte
 	_, _ = rand.Read(b[:]) // crypto/rand.Read never fails (it aborts the program instead)
