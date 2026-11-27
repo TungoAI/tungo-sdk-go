@@ -36,6 +36,10 @@ type Client struct {
 	OneC *OneCService
 	// Automations: Автоматизации компании: входящие хуки, сценарии, цепочки шагов, запуски и уровень автономности ИИ
 	Automations *AutomationsService
+	// Verification: Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API)
+	Verification *VerificationService
+	// Releases: Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API)
+	Releases *ReleasesService
 }
 
 // NewClient creates a client. Options that are not given fall back to the environment variables
@@ -68,5 +72,7 @@ func newClient(cfg config) *Client {
 	c.Forms = &FormsService{client: c}
 	c.OneC = &OneCService{client: c}
 	c.Automations = &AutomationsService{client: c}
+	c.Verification = &VerificationService{client: c}
+	c.Releases = &ReleasesService{client: c}
 	return c
 }

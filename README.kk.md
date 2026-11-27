@@ -357,7 +357,7 @@ fmt.Println(half)                          // 29
 
 ## API анықтамалығы
 
-Tungo платформасы API-інің келісімшартынан жасалған: **ресурстар — 13, әдістер — 90, вебхук оқиғаларының түрлері — 22**.
+Tungo платформасы API-інің келісімшартынан жасалған: **ресурстар — 15, әдістер — 100, вебхук оқиғаларының түрлері — 22**.
 
 | Ресурс | Сипаттама | Әдістер |
 | --- | --- | --- |
@@ -366,7 +366,7 @@ Tungo платформасы API-інің келісімшартынан жас�
 | `client.Platform` | Платформа балансы, қозғалыстар кітабы, шығын есептері, лимиттер, аудит және модельдер тарифтері | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
 | `client.APIKeys` | Ағымдағы API кілті туралы мәлімет және оның шығын статистикасы | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
 | `client.Webhooks` | Ұйымның шығыс вебхуктары (Svix): мекенжайлар, оқиғалар каталогы, жеткізулер және қолтаңбаны тексеру | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | ЖИ-бухгалтермен диалогтар: сұрақтар, ағынды чат (SSE), токендерді санау және тарих | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` |
+| `client.Chat` | ЖИ-бухгалтермен диалогтар: сұрақтар, ағынды чат (SSE), токендерді санау және тарих | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` · `TranslateThinking` |
 | `client.Proposals` | ЖИ-бухгалтер ұсынған құжаттар: қарау, 1С-ке жазуды мақұлдау және қабылдамау | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
 | `client.Feed` | Компанияның оқиғалар мен ұсыныстар таспасы (беттер және тікелей SSE ағыны) | `Get / GetAll` · `ListEvents` |
 | `client.Batches` | Банк үзінді көшірмелерін, кіріс ЭШФ-ларды және DirectBank-ті өңдеу бумалары | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
@@ -374,6 +374,8 @@ Tungo платформасы API-інің келісімшартынан жас�
 | `client.Forms` | Салық нысандары (СЕН 100.00 және басқалары): құрастыру, ИСНА тексеруі және деректердегі алшақтықтар | `List` · `Build` · `ListDataGaps` · `GetIsna` · `ListNotes` |
 | `client.OneC` | Компанияның 1С базасына қосылу күйі | `GetStatus` |
 | `client.Automations` | Компания автоматтандырулары: кіріс хуктар, сценарийлер, қадамдар тізбегі, іске қосулар және ЖИ дербестігінің деңгейі | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` · `PutAutonomy` |
+| `client.Verification` | Tungo құжаттарының электрондық қолтаңбасын ашық тексеру: код, файл, QR блогы бойынша және қолтаңба кілттері (API кілтісіз) | `ListKeys` · `VerifyQr` · `Get` · `Check` |
+| `client.Releases` | Ашық жүктеулер тізімі: 1С кеңейтімі және Tungo Connector (API кілтісіз) | `List` |
 
 ## Басқа SDK-лар
 
@@ -394,7 +396,7 @@ Tungo платформасы API-інің келісімшартынан жас�
 
 ## Нұсқалар және қолдау
 
-Кітапхана [семантикалық нұсқалауды](https://semver.org/) ұстанады. Жоғарғы нұсқа 0 болып тұрғанда аралық шығарылымда үйлесімсіз өзгерістер болуы мүмкін; олар әрдайым [өзгерістер тарихында](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) келтіріледі. Бұл README 0.3.0 нұсқасын сипаттайды.
+Кітапхана [семантикалық нұсқалауды](https://semver.org/) ұстанады. Аралық және түзету шығарылымдары үйлесімді: API толықтыру арқылы өседі, ал алынатын өріс не әдіс алдымен ескірген деп белгіленіп, кемінде алты ай сақталады. Үйлесімсіз өзгерістер тек жаңа жоғарғы нұсқада болады және ауысу нұсқауларымен бірге [өзгерістер тарихында](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) келтіріледі. Бұл README 1.0.0 нұсқасын сипаттайды.
 
 Код генератормен жасалады: мәселелер мен ұсыныстар туралы жасалған файлдарға түзету жібермей, [өтініштерге](https://github.com/TungoAI/tungo-sdk-go/issues) жазыңыз. Осалдық туралы [қауіпсіздік саясаты](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md) бойынша хабарлаңыз.
 

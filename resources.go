@@ -986,6 +986,70 @@ func (s *ChatService) CountTokens(ctx context.Context, body ChatTokenCountReques
 	return out, nil
 }
 
+// ChatListFilesParams holds the query and header parameters of ChatService.ListFiles.
+type ChatListFilesParams struct {
+	// next_cursor прошлой страницы; без него — самые новые файлы. Фильтры — те же, что у первой страницы
+	//
+	// Leave it empty for the first page; Next and the auto-paging iterator fill it in.
+	Cursor *string
+	// Только из этого разговора
+	DialogID *string
+	// Только этого формата: xlsx, docx, pdf или csv
+	Format *ListCompanyChatFilesFormat
+	// Сколько на странице: 1–200, по умолчанию 50
+	Limit *int64
+	// Подстрока имени файла, без учёта регистра
+	Q *string
+}
+
+// ListFiles: Файлы от ИИ в своих разговорах, новые сверху
+//
+// GET /v1/companies/{co}/chat/files
+//
+// It returns one page; call Next on it for the following one, or use ListFilesAll to iterate over every item.
+//
+// Required permission: chat.use.
+func (s *ChatService) ListFiles(ctx context.Context, params *ChatListFilesParams, opts ...Option) (*ChatFileList, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/companies/{co}/chat/files",
+		auth:   authKey,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "cursor", params.Cursor)
+		addQuery(spec.query, "dialog_id", params.DialogID)
+		addQuery(spec.query, "format", params.Format)
+		addQuery(spec.query, "limit", params.Limit)
+		addQuery(spec.query, "q", params.Q)
+	}
+	out := new(ChatFileList)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	out.next = func(ctx context.Context, cursor string) (*ChatFileList, error) {
+		var p ChatListFilesParams
+		if params != nil {
+			p = *params
+		}
+		p.Cursor = &cursor
+		return s.ListFiles(ctx, &p, opts...)
+	}
+	return out, nil
+}
+
+// ListFilesAll iterates over every item of every page of ListFiles, fetching the next page only when the
+// loop needs it. The filters in params and the request options apply to every page. The
+// iteration stops at the first error, which is yielded once; a cursor that repeats is
+// reported as a *PaginationError instead of looping forever.
+func (s *ChatService) ListFilesAll(ctx context.Context, params *ChatListFilesParams, opts ...Option) iter.Seq2[ChatFileItem, error] {
+	return autoPage[ChatFileItem, *ChatFileList](func() (*ChatFileList, error) {
+		return s.ListFiles(ctx, params, opts...)
+	}, func(p *ChatFileList) (*ChatFileList, error) {
+		return p.Next(ctx)
+	})
+}
+
 // ChatListMentionsParams holds the query and header parameters of ChatService.ListMentions.
 type ChatListMentionsParams struct {
 	// Сколько на каждый вид: 1–20, по умолчанию 8
@@ -1070,6 +1134,59 @@ func (s *ChatService) ListSuggestions(ctx context.Context, params *ChatListSugge
 		addQuery(spec.query, "lang", params.Lang)
 	}
 	out := new(ChatSuggestions)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreateUpload: Начать загрузку архива к сообщению
+//
+// POST /v1/companies/{co}/chat/uploads
+//
+// Required permission: chat.use.
+func (s *ChatService) CreateUpload(ctx context.Context, body ChatUploadCreate, opts ...Option) (*ChatUpload, error) {
+	spec := requestSpec{
+		method: "POST",
+		path:   "/v1/companies/{co}/chat/uploads",
+		auth:   authKey,
+	}
+	spec.body, spec.hasBody = body, true
+	out := new(ChatUpload)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeleteUpload: Отменить загрузку архива
+//
+// DELETE /v1/companies/{co}/chat/uploads/{upload}
+//
+// Required permission: chat.use.
+func (s *ChatService) DeleteUpload(ctx context.Context, upload string, opts ...Option) error {
+	spec := requestSpec{
+		method:   "DELETE",
+		path:     "/v1/companies/{co}/chat/uploads/{upload}",
+		pathArgs: []string{"upload", upload},
+		auth:     authKey,
+	}
+	return s.client.do(ctx, &spec, nil, opts)
+}
+
+// PutUploadPart: Часть архива
+//
+// PUT /v1/companies/{co}/chat/uploads/{upload}/parts/{n}
+//
+// Required permission: chat.use.
+func (s *ChatService) PutUploadPart(ctx context.Context, upload string, n string, opts ...Option) (*ChatUploadPart, error) {
+	spec := requestSpec{
+		method:   "PUT",
+		path:     "/v1/companies/{co}/chat/uploads/{upload}/parts/{n}",
+		pathArgs: []string{"upload", upload, "n", n},
+		auth:     authKey,
+	}
+	out := new(ChatUploadPart)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -1297,6 +1414,25 @@ func (s *ChatService) Stop(ctx context.Context, id string, opts ...Option) (*Cha
 		auth:     authKey,
 	}
 	out := new(ChatStopResult)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TranslateThinking: Перевести размышление на русский
+//
+// POST /v1/companies/{co}/chat/{id}/thinking/{tid}/translate
+//
+// Required permission: chat.use.
+func (s *ChatService) TranslateThinking(ctx context.Context, id string, tid string, opts ...Option) (*ChatThinkingTranslation, error) {
+	spec := requestSpec{
+		method:   "POST",
+		path:     "/v1/companies/{co}/chat/{id}/thinking/{tid}/translate",
+		pathArgs: []string{"id", id, "tid", tid},
+		auth:     authKey,
+	}
+	out := new(ChatThinkingTranslation)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -2688,6 +2824,104 @@ func (s *AutomationsService) PutAutonomy(ctx context.Context, body CompanyAutono
 	}
 	spec.body, spec.hasBody = body, true
 	out := new(CompanyAutonomy)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// VerificationService: Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API)
+//
+// Reach it through the Verification field of a Client.
+type VerificationService struct {
+	client *Client
+}
+
+// ListKeys: Ключи подписи QR (JWKS)
+//
+// GET /v1/public/verify-keys
+func (s *VerificationService) ListKeys(ctx context.Context, opts ...Option) (*VerifyKeys, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/public/verify-keys",
+		auth:   authNone,
+	}
+	out := new(VerifyKeys)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// VerifyQr: Проверить подписанный блок QR
+//
+// POST /v1/public/verify/qr
+func (s *VerificationService) VerifyQr(ctx context.Context, body VerifyQrInput, opts ...Option) (*VerifyQrResult, error) {
+	spec := requestSpec{
+		method: "POST",
+		path:   "/v1/public/verify/qr",
+		auth:   authNone,
+	}
+	spec.body, spec.hasBody = body, true
+	out := new(VerifyQrResult)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Get: Проверка подписи документа по коду
+//
+// GET /v1/public/verify/{code}
+func (s *VerificationService) Get(ctx context.Context, code string, opts ...Option) (*PublicVerification, error) {
+	spec := requestSpec{
+		method:   "GET",
+		path:     "/v1/public/verify/{code}",
+		pathArgs: []string{"code", code},
+		auth:     authNone,
+	}
+	out := new(PublicVerification)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Check: Сверить файл с подписанным
+//
+// POST /v1/public/verify/{code}/check
+func (s *VerificationService) Check(ctx context.Context, code string, body VerifyCheckInput, opts ...Option) (*VerifyCheck, error) {
+	spec := requestSpec{
+		method:   "POST",
+		path:     "/v1/public/verify/{code}/check",
+		pathArgs: []string{"code", code},
+		auth:     authNone,
+	}
+	spec.body, spec.hasBody = body, true
+	out := new(VerifyCheck)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ReleasesService: Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API)
+//
+// Reach it through the Releases field of a Client.
+type ReleasesService struct {
+	client *Client
+}
+
+// List: Что скачать
+//
+// GET /v1/public/downloads
+func (s *ReleasesService) List(ctx context.Context, opts ...Option) (*Downloads, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/public/downloads",
+		auth:   authNone,
+	}
+	out := new(Downloads)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}

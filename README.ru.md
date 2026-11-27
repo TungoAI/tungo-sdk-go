@@ -357,7 +357,7 @@ fmt.Println(half)                          // 29
 
 ## Справочник API
 
-Создано из контракта API платформы Tungo: **ресурсов — 13, методов — 90, типов событий вебхуков — 22**.
+Создано из контракта API платформы Tungo: **ресурсов — 15, методов — 100, типов событий вебхуков — 22**.
 
 | Ресурс | Описание | Методы |
 | --- | --- | --- |
@@ -366,7 +366,7 @@ fmt.Println(half)                          // 29
 | `client.Platform` | Баланс платформы, книга движений, отчёты о расходе, лимиты, аудит и тарифы моделей | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
 | `client.APIKeys` | Сведения о текущем ключе API и статистика его расхода | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
 | `client.Webhooks` | Исходящие вебхуки организации (Svix): адреса, каталог событий, доставки и проверка подписи | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` |
+| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` · `TranslateThinking` |
 | `client.Proposals` | Предложения документов ИИ-бухгалтера: просмотр, одобрение записи в 1С и отклонение | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
 | `client.Feed` | Лента событий и предложений компании (страницы и живой поток SSE) | `Get / GetAll` · `ListEvents` |
 | `client.Batches` | Пачки обработки банковских выписок, входящих ЭСФ и DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
@@ -374,6 +374,8 @@ fmt.Println(half)                          // 29
 | `client.Forms` | Налоговые формы (ФНО 100.00 и др.): сборка, проверка ИСНА и разрывы данных | `List` · `Build` · `ListDataGaps` · `GetIsna` · `ListNotes` |
 | `client.OneC` | Состояние подключения компании к базе 1С | `GetStatus` |
 | `client.Automations` | Автоматизации компании: входящие хуки, сценарии, цепочки шагов, запуски и уровень автономности ИИ | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` · `PutAutonomy` |
+| `client.Verification` | Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API) | `ListKeys` · `VerifyQr` · `Get` · `Check` |
+| `client.Releases` | Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API) | `List` |
 
 ## Другие SDK
 
@@ -394,7 +396,7 @@ fmt.Println(half)                          // 29
 
 ## Версии и поддержка
 
-Библиотека следует [семантическому версионированию](https://semver.org/lang/ru/). Пока старшая версия равна 0, промежуточный выпуск может содержать несовместимые изменения; они всегда перечислены в [истории изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). Этот README описывает версию 0.3.0.
+Библиотека следует [семантическому версионированию](https://semver.org/lang/ru/). Промежуточные и исправляющие выпуски совместимы: API растёт добавлениями, а поле или метод, которые уйдут, сначала помечаются устаревшими и живут не меньше шести месяцев. Несовместимые изменения бывают только в новой старшей версии и перечислены, с указаниями по переходу, в [истории изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). Этот README описывает версию 1.0.0.
 
 Код создаётся генератором: пишите о проблемах и идеях в [обращения](https://github.com/TungoAI/tungo-sdk-go/issues), а не присылайте правки к созданным файлам. Об уязвимости сообщайте по [политике безопасности](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md).
 

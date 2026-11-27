@@ -4,13 +4,13 @@ package tungo
 
 // Version is the version of this SDK. It is sent in the User-Agent header
 // (tungo-sdk-go/<version>) and always equals the git tag of the release.
-const Version = "0.3.0" // x-release-version
+const Version = "1.0.0" // x-release-version
 
 // ContractVersion is the version of the API contract this SDK was generated from.
 const ContractVersion = "0.1.0"
 
 // ContractHash is the SHA-256 of the API contract this SDK was generated from.
-const ContractHash = "13f40c73f118b8ee93c26451973dbb5e1a24e46c5c9649ca335c8a5ea6b65700"
+const ContractHash = "6fabb11d42ea2cb1a2c4d7161e9c06a504ce30e4e1a61b4f0e0cd90e1ab20bf0"
 
 // DefaultBaseURL is the production API host used unless WithBaseURL or TUNGO_BASE_URL says otherwise.
 const DefaultBaseURL = "https://api.tungo.kz"
