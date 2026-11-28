@@ -3,22 +3,22 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo02.svg" />
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" />
-  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" width="240" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" />
+  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" width="240" />
 </picture>
 
 # Tungo SDK для Go
 
 **Официальная библиотека Go для API платформы Tungo**
 
-[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go)
+[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go/v2.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go/v2)
 [![CI](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml/badge.svg)](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/TungoAI/tungo-sdk-go/blob/main/LICENSE)
 
 [English](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md) · **Русский** · [Қазақша](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.kk.md)
 
-[tungo.kz](https://tungo.kz) · [Быстрый старт](#быстрый-старт) · [Справочник API](#справочник-api) · [История изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Обращения](https://github.com/TungoAI/tungo-sdk-go/issues)
+[tungo.kz](https://tungo.kz) · [Быстрый старт](#быстрый-старт) · [Справочник API](#справочник-api) · [История изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Поддержка](https://app.tungo.kz)
 
 </div>
 
@@ -28,20 +28,18 @@
 
 Библиотека создаётся из OpenAPI-контракта API, поэтому её методы и модели всегда соответствуют контракту, из которого она собрана.
 
-> Полная версия с примечаниями, относящимися только к этому языку, — в [английском README](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md).
-
 ## Требования
 
-Поддерживаемые версии и зависимости перечислены в [английском README](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md#requirements).
+Go 1.24 или новее. Модуль не имеет зависимостей за пределами стандартной библиотеки. CI проверяет его на Go 1.24 и на текущем стабильном выпуске с детектором гонок.
 
 ## Установка
 
 ```sh
-go get github.com/TungoAI/tungo-sdk-go@latest
+go get github.com/TungoAI/tungo-sdk-go/v2@latest
 ```
 
 ```go
-import tungo "github.com/TungoAI/tungo-sdk-go"
+import tungo "github.com/TungoAI/tungo-sdk-go/v2"
 ```
 
 ## Быстрый старт
@@ -57,7 +55,7 @@ import (
 	"fmt"
 	"log"
 
-	tungo "github.com/TungoAI/tungo-sdk-go"
+	tungo "github.com/TungoAI/tungo-sdk-go/v2"
 )
 
 func main() {
@@ -119,6 +117,8 @@ fmt.Println(len(dialogs.Data), "dialogs, request id", resp.RequestID())
 other := client.WithOptions(tungo.WithCompanyID("co_789"))
 ```
 
+Компания (`co_...`) и организация (`ws_...`) тоже задаются параметрами: `WithCompanyID` и `WithWorkspaceID`, по умолчанию — из переменных окружения `TUNGO_COMPANY_ID` и `TUNGO_WORKSPACE_ID`. `WithAPIKey("")` и `WithBaseURL("")` игнорируются, поэтому незаданная ваша собственная переменная оставляет в силе значения по умолчанию. Каждый метод принимает первым аргументом `context.Context`, а последним — `...tungo.Option`. `fmt` никогда не выводит ключ: `%+v` клиента показывает `APIKey: [REDACTED]`. `WithMiddleware` оборачивает HTTP-обмен каждой попытки (журналирование, трассировка); `tungo.RedactHeaders` скрывает учётные данные в заголовках, которые вы записываете в журнал.
+
 ## Ошибки
 
 Любой сбой — подтип базовой ошибки SDK. Ответ с HTTP-ошибкой превращается в ошибку API, тип которой выбирается по полю `error.type` тела ответа, а если тело не является стандартной ошибкой API — по HTTP-статусу:
@@ -175,6 +175,8 @@ if tungo.KindOf(err) == tungo.KindAuthentication {
 }
 ```
 
+Все ошибки SDK реализуют `tungo.Error` и работают с `errors.As` и `errors.Is`: `*TimeoutError` соответствует `context.DeadlineExceeded`, отменённый вызов — `context.Canceled`. `*APIError` также содержит типизированный `Detail` конверта ошибки и `Extra` со свойствами, неизвестными этой версии SDK.
+
 ## Повторы и тайм-ауты
 
 Запрос повторяется до 2 раз (всего 3 попытки) при ошибках соединения, тайм-аутах и статусах 408, 429, 500, 502, 503 и 504, но только когда повтор безопасен: запросы `GET`, `HEAD`, `PUT` и `DELETE`, а также `POST` и `PATCH` тех операций, у которых контракт объявляет заголовок `Idempotency-Key`. Для них SDK сам создаёт случайный ключ и использует его во всех попытках; можно передать свой. Другие операции ключ не отправляют, даже переданный: API его там не учитывает.
@@ -191,14 +193,14 @@ client := base.WithOptions(
 )
 
 // ...or for one call.
-account, err := client.Platform.GetAccount(ctx,
+balance, err := client.Workspaces.GetBalance(ctx,
 	tungo.WithMaxRetries(0),
 	tungo.WithRequestTimeout(5*time.Second),
 )
 if err != nil {
 	return err
 }
-fmt.Println(account.BalanceTiyn)
+fmt.Println(balance.BalanceTiyn)
 
 // The deadline of the context bounds the call as a whole, retries and pauses included.
 ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -216,6 +218,8 @@ if err != nil {
 }
 fmt.Println(turn.Answer)
 ```
+
+`WithTimeout` и `WithRequestTimeout` ограничивают одну попытку. SDK никогда не задаёт `http.Client.Timeout`, поэтому собственный HTTP-клиент продолжает работать для потоков. `WithStreamIdleTimeout` меняет тайм-аут простоя потоков; он учитывает только время, пока чтение ждёт сервер, а не время, которое ваш код тратит на событие. `Retry-After`, равный нулю или указывающий в прошлое, не заставляет SDK повторять сразу: действует обычная пауза. Заголовки лимита запросов из ответа доступны через `WithResponseInto` и `Response.RateLimit`.
 
 ## Постраничная выдача
 
@@ -247,6 +251,8 @@ for proposal, err := range client.Proposals.ListAll(ctx, params) {
 	fmt.Println(proposal.ID)
 }
 ```
+
+Итератор завершается с `*tungo.PaginationError`, если API дважды возвращает один и тот же курсор, поэтому цикл не может крутиться бесконечно.
 
 ## Потоковая передача
 
@@ -293,6 +299,28 @@ if err != nil {
 fmt.Println(turn.Text, turn.StopReason)
 ```
 
+`Events` выдаёт каждое событие потока как размеченное объединение; тип события, неизвестный этой версии SDK, приходит как `*tungo.UnknownVariant`, а не обрывает поток с ошибкой, а сигналы активности пропускаются. `RawEvents` выдаёт неразобранные события SSE. `Accumulate` возвращает `*tungo.TurnError`, когда ошибкой завершается сам ход, и `*tungo.DecodeError`, соответствующую `tungo.ErrStreamIncomplete`, когда поток заканчивается до события `done`: накопленный к этому моменту текст тогда не является готовым ответом. Успешный ответ не в формате `text/event-stream` — тоже `*tungo.DecodeError`. Исключение — завершённый ход чата, который API воспроизводит повторно для повторного `Idempotency-Key` (`application/json` с `Idempotent-Replayed: true`): его сохранённый результат приходит в виде событий этого хода, заканчиваясь `next` (уточняющие вопросы и следующее действие, если они есть) и `done`. Остальные потоки (`Chat.ListEvents`, `Batches.ListEvents`, `Feed.ListEvents`) работают так же; после обрыва соединения `LastEventID` показывает, где поток остановился. Сам SDK заново не подключается.
+
+## Скачивание файлов
+
+Операции, которые отвечают файлом (`chat.download_file` — файлы Excel, Word, PDF и CSV, собранные ИИ; `proposals.export` и `batches.export` — xlsx, csv или pdf), возвращают скачанный файл: его байты, имя файла из заголовка `Content-Disposition` (UTF-8 `filename*`, если он есть, иначе `filename`; имени нет, если сервер его не прислал) и `Content-Type`. Файл целиком читается в память. Ошибки, повторы и таймауты — такие же, как у остальных запросов. Имя файла — предложение сервера, а не безопасный путь: не стройте из него путь без проверки.
+
+```go
+format := tungo.GetCompanyProposalExportFormatPdf
+file, err := client.Proposals.Export(ctx, "P-000123", &tungo.ProposalsExportParams{Format: &format})
+if err != nil {
+	return err // the same *tungo.APIError as for any other call
+}
+name := "P-000123.pdf"
+if file.Filename != "" {
+	name = filepath.Base(file.Filename) // the server's suggestion, reduced to a bare name
+}
+if err := os.WriteFile(name, file.Content, 0o644); err != nil {
+	return err
+}
+fmt.Println(name, file.ContentType, len(file.Content), file.RequestID())
+```
+
 ## Вебхуки
 
 Исходящие вебхуки подписываются по спецификации Standard Webhooks (Svix). Функция проверки принимает исходное тело запроса и заголовки (`webhook-*` или `svix-*`), проверяет подпись HMAC-SHA256 за постоянное время и метку времени в пределах 300 с от системных часов и возвращает типизированное событие. Любая проблема сообщается как ошибка проверки вебхука. Если секрет не передан, используется секрет вебхуков клиента.
@@ -336,6 +364,8 @@ if err != nil {
 fmt.Println(accepted.EventID, accepted.Duplicate)
 ```
 
+`tungo.VerifyWebhook(body, header, secret)` делает то же без клиента. `WithWebhookTolerance` меняет пятиминутное окно. `tungo.SignHook` и `tungo.VerifyHookSignature` вручную подписывают и проверяют полезную нагрузку хука.
+
 ## Деньги
 
 API передаёт суммы в тиынах (1/100 тенге) 64-битными целыми числами. Денежные функции переводят десятичные строки и точные десятичные значения в тиыны без погрешности дробных чисел, округляя половину от нуля (`"1.005"` → `101`), и форматируют тиыны для показа (`4500000` → `45 000,00 ₸`). Некорректный ввод вызывает типизированную ошибку.
@@ -355,27 +385,82 @@ half, _ := tungo.ToTiynFloat(0.285)        // floats are accepted and rounded ha
 fmt.Println(half)                          // 29
 ```
 
+`ToTiynRat` переводит точное значение `*big.Rat`. `ToTiynFloat` существует для значений, которые уже являются дробными числами; предпочитайте строки.
+
+## null, отсутствующие и нулевые значения
+
+Нулевые значения Go не позволяют отличить «не задано» от «задано нулём», поэтому модели выражают это явно. В типах запросов необязательное свойство — указатель (`nil`: не отправляется), а свойство, допускающее `null`, — `tungo.Nullable[T]` (нулевое значение: не отправляется, `tungo.Null[T]()`: `null`, `tungo.Value(v)`: значение, даже пустой список или ноль). Обязательные списки и словари никогда не отправляются как `null`. В ответах свойство, допускающее null, или необязательное свойство — указатель.
+
+```go
+// Optional fields are pointers: nil is "not sent", tungo.Ptr(false) is false.
+// Fields the API accepts null for are tungo.Nullable: the zero value is "not sent".
+_, err := client.Webhooks.UpdateEndpoint(ctx, "ep_1", tungo.WebhookEndpointPatch{
+	Enabled:    tungo.Ptr(false),        // "enabled": false
+	EventTypes: tungo.Value([]string{}), // "event_types": []
+	Channels:   tungo.Null[[]string](),  // "channels": null
+	// Description is not set: the property is not sent and stays as it is.
+})
+if err != nil {
+	return err
+}
+
+// Responses keep what this SDK version does not know about.
+endpoint, err := client.Webhooks.GetEndpoint(ctx, "ep_1")
+if err != nil {
+	return err
+}
+fmt.Println(endpoint.ExtraFields()) // properties added to the API later, as raw JSON
+```
+
+Каждая модель хранит JSON, из которого она разобрана: `RawJSON()` возвращает его, а `ExtraFields()` — свойства, для которых в этой версии SDK нет поля. Перечисления — строковые типы, поэтому значение, добавленное в API позже, разбирается без ошибки. Объединение с дискриминатором — это структура с полем `Value`, содержащим один из типов-вариантов (используйте type switch); объединение простых форм JSON — это структура с отдельным полем-указателем для каждой формы.
+
+## Ожидание долгих операций
+
+```go
+// Start a scenario and wait until its run reaches a final state.
+run, err := client.RunScenarioAndWait(ctx, "scn_1", nil, &tungo.WaitOptions{Timeout: 10 * time.Minute})
+if err != nil {
+	return err // *tungo.TimeoutError when the run is still going after ten minutes
+}
+fmt.Println(run.State)
+
+// Upload a bank statement and wait for the batch that processes it.
+statement := []byte("1CClientBankExchange\n...")
+job, err := client.UploadBankStatement(ctx, "statement.txt", statement, true)
+if err != nil {
+	return err
+}
+if job, err = client.WaitForBatch(ctx, job.ID, nil); err != nil {
+	return err
+}
+fmt.Println(job.Running) // false
+```
+
+Помощники опрашивают с паузой, растущей от 1 s до 5 s, останавливаются на любом конечном состоянии из контракта и учитывают контекст. Опрос, не удавшийся по временной причине (ошибка соединения, тайм-аут, 408, 429, 5xx), повторяется до истечения срока; любая другая ошибка сразу прекращает ожидание.
+
+## Примеры
+
+Готовые программы находятся в [`examples/`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples): [`quickstart`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/quickstart/main.go), [`streaming`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/streaming/main.go) и [`webhook-server`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/webhook-server/main.go). Код этого README — `example_test.go`: `go test` компилирует его и запускает на локальном mock-сервере.
+
 ## Справочник API
 
-Создано из контракта API платформы Tungo: **ресурсов — 15, методов — 100, типов событий вебхуков — 22**.
+Создано из контракта API платформы Tungo: **ресурсов — 13, методов — 83, типов событий вебхуков — 20**.
 
 | Ресурс | Описание | Методы |
 | --- | --- | --- |
-| `client.Workspaces` | Организации (workspace), доступные ключу API | `List` |
+| `client.Workspaces` | Организации (workspace), доступные ключу API, и остаток баланса платформы | `List` · `GetBalance` |
 | `client.Companies` | Компании организации и их карточки | `List` · `Get` |
-| `client.Platform` | Баланс платформы, книга движений, отчёты о расходе, лимиты, аудит и тарифы моделей | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
-| `client.APIKeys` | Сведения о текущем ключе API и статистика его расхода | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
-| `client.Webhooks` | Исходящие вебхуки организации (Svix): адреса, каталог событий, доставки и проверка подписи | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` · `TranslateThinking` |
-| `client.Proposals` | Предложения документов ИИ-бухгалтера: просмотр, одобрение записи в 1С и отклонение | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
+| `client.APIKeys` | Сведения о текущем ключе API: права, срок, траты месяца и почему вызовы не пройдут | `GetCurrent` |
+| `client.Webhooks` | Исходящие вебхуки организации (Svix): адреса, каталог событий, доставки и проверка подписи | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` |
+| `client.Chat` | Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `DownloadFile` · `Stop` |
+| `client.Proposals` | Предложения документов ИИ-бухгалтера: просмотр, одобрение записи в 1С и отклонение | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Export` · `Reject` · `RequestApproval` |
 | `client.Feed` | Лента событий и предложений компании (страницы и живой поток SSE) | `Get / GetAll` · `ListEvents` |
-| `client.Batches` | Пачки обработки банковских выписок, входящих ЭСФ и DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
+| `client.Batches` | Пачки обработки банковских выписок, входящих ЭСФ и DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Export` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
 | `client.ESF` | Входящие и исходящие электронные счета-фактуры (ИС ЭСФ) | `GetIncoming / GetIncomingAll` · `GetOutgoing / GetOutgoingAll` |
 | `client.Forms` | Налоговые формы (ФНО 100.00 и др.): сборка, проверка ИСНА и разрывы данных | `List` · `Build` · `ListDataGaps` · `GetIsna` · `ListNotes` |
 | `client.OneC` | Состояние подключения компании к базе 1С | `GetStatus` |
-| `client.Automations` | Автоматизации компании: входящие хуки, сценарии, цепочки шагов, запуски и уровень автономности ИИ | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` · `PutAutonomy` |
+| `client.Automations` | Автоматизации компании: входящие хуки, сценарии, цепочки шагов, запуски и уровень автономности ИИ | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` |
 | `client.Verification` | Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API) | `ListKeys` · `VerifyQr` · `Get` · `Check` |
-| `client.Releases` | Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API) | `List` |
 
 ## Другие SDK
 
@@ -385,7 +470,7 @@ fmt.Println(half)                          // 29
 | --- | --- | --- |
 | TypeScript | [tungo-sdk-typescript](https://github.com/TungoAI/tungo-sdk-typescript) | `@tungoai/sdk` |
 | Python | [tungo-sdk-python](https://github.com/TungoAI/tungo-sdk-python) | `tungoai` |
-| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go` |
+| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go/v2` |
 | Rust | [tungo-sdk-rust](https://github.com/TungoAI/tungo-sdk-rust) | `tungo-sdk` |
 | PHP | [tungo-sdk-php](https://github.com/TungoAI/tungo-sdk-php) | `tungo/sdk` |
 | Java | [tungo-sdk-java](https://github.com/TungoAI/tungo-sdk-java) | `kz.tungo:tungo-sdk` |
@@ -396,9 +481,9 @@ fmt.Println(half)                          // 29
 
 ## Версии и поддержка
 
-Библиотека следует [семантическому версионированию](https://semver.org/lang/ru/). Промежуточные и исправляющие выпуски совместимы: API растёт добавлениями, а поле или метод, которые уйдут, сначала помечаются устаревшими и живут не меньше шести месяцев. Несовместимые изменения бывают только в новой старшей версии и перечислены, с указаниями по переходу, в [истории изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). Этот README описывает версию 1.0.0.
+Библиотека следует [семантическому версионированию](https://semver.org/lang/ru/). Промежуточные и исправляющие выпуски совместимы: API растёт добавлениями, а поле или метод, которые уйдут, сначала помечаются устаревшими и живут не меньше шести месяцев. Несовместимые изменения бывают только в новой старшей версии и перечислены, с указаниями по переходу, в [истории изменений](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). Этот README описывает версию 2.0.0.
 
-Код создаётся генератором: пишите о проблемах и идеях в [обращения](https://github.com/TungoAI/tungo-sdk-go/issues), а не присылайте правки к созданным файлам. Об уязвимости сообщайте по [политике безопасности](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md).
+С вопросами и проблемами обращайтесь в поддержку в [личном кабинете Tungo](https://app.tungo.kz). Код создаётся генератором из контракта API, и правка созданного файла затирается при следующей генерации, поэтому опишите нужное изменение в обращении, а не присылайте pull request. Об уязвимости сообщайте по [политике безопасности](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md).
 
 ## Лицензия
 

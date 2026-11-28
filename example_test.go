@@ -13,12 +13,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	tungo "github.com/TungoAI/tungo-sdk-go"
+	tungo "github.com/TungoAI/tungo-sdk-go/v2"
 )
 
 // The functions named readme* are the code of the README, word for word: the generator cuts
@@ -106,14 +107,14 @@ func readmeRetries(ctx context.Context, base *tungo.Client) error {
 	)
 
 	// ...or for one call.
-	account, err := client.Platform.GetAccount(ctx,
+	balance, err := client.Workspaces.GetBalance(ctx,
 		tungo.WithMaxRetries(0),
 		tungo.WithRequestTimeout(5*time.Second),
 	)
 	if err != nil {
 		return err
 	}
-	fmt.Println(account.BalanceTiyn)
+	fmt.Println(balance.BalanceTiyn)
 
 	// The deadline of the context bounds the call as a whole, retries and pauses included.
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -204,6 +205,25 @@ func readmeStreaming(ctx context.Context, client *tungo.Client) error {
 		return err // *tungo.TurnError when the turn itself failed
 	}
 	fmt.Println(turn.Text, turn.StopReason)
+	// README:end
+	return nil
+}
+
+func readmeDownloads(ctx context.Context, client *tungo.Client) error {
+	// README:downloads
+	format := tungo.GetCompanyProposalExportFormatPdf
+	file, err := client.Proposals.Export(ctx, "P-000123", &tungo.ProposalsExportParams{Format: &format})
+	if err != nil {
+		return err // the same *tungo.APIError as for any other call
+	}
+	name := "P-000123.pdf"
+	if file.Filename != "" {
+		name = filepath.Base(file.Filename) // the server's suggestion, reduced to a bare name
+	}
+	if err := os.WriteFile(name, file.Content, 0o644); err != nil {
+		return err
+	}
+	fmt.Println(name, file.ContentType, len(file.Content), file.RequestID())
 	// README:end
 	return nil
 }
@@ -336,6 +356,10 @@ func readmeMock(t *testing.T) *httptest.Server {
 				"id: 4\nevent: done\ndata: {\"type\":\"done\",\"stop_reason\":\"end_turn\"}\n\n")
 		case strings.HasSuffix(path, "/chat"):
 			_, _ = io.WriteString(w, `{"dialog_id":"dlg_1","turn_no":1,"answer":"Готово","proposals":[],"pending_question":null,"questions":[],"citations":[],"errors":[]}`)
+		case strings.HasSuffix(path, "/proposals/P-000123/export") && r.URL.Query().Get("format") == "pdf":
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", `attachment; filename="tungo-P-000123.pdf"`)
+			_, _ = io.WriteString(w, "%PDF-1.7\n")
 		case strings.HasSuffix(path, "/proposals/P-000042"):
 			w.WriteHeader(404)
 			_, _ = io.WriteString(w, `{"type":"error","error":{"type":"not_found_error","message":"Предложение не найдено"},"request_id":"req_2"}`)
@@ -345,8 +369,8 @@ func readmeMock(t *testing.T) *httptest.Server {
 				next = "null"
 			}
 			_, _ = io.WriteString(w, `{"data":[{"id":"P-`+r.URL.Query().Get("cursor")+`1","total":`+money(123450)+`,"vat":`+money(0)+`}],"next_cursor":`+next+`,"counts":{},"total":2}`)
-		case strings.HasSuffix(path, "/account"):
-			_, _ = io.WriteString(w, `{"balance_tiyn":500000}`)
+		case strings.HasSuffix(path, "/platform/balance"):
+			_, _ = io.WriteString(w, `{"balance_tiyn":500000,"enabled":true}`)
 		case strings.HasPrefix(path, "POST /hooks/"):
 			w.WriteHeader(202)
 			_, _ = io.WriteString(w, `{"accepted":true,"event_id":"hev_1","duplicate":false,"run_ids":[]}`)
@@ -404,6 +428,7 @@ func TestReadmeSnippets(t *testing.T) {
 		devNull.Close()
 	}()
 
+	t.Chdir(t.TempDir()) // the downloads snippet writes its file into the working directory
 	recorder := httptest.NewRecorder()
 	snippets := map[string]func() error{
 		"config":     func() error { return readmeConfig(ctx) },
@@ -411,6 +436,7 @@ func TestReadmeSnippets(t *testing.T) {
 		"retries":    func() error { return readmeRetries(ctx, client) },
 		"pagination": func() error { return readmePagination(ctx, client) },
 		"streaming":  func() error { return readmeStreaming(ctx, client) },
+		"downloads":  func() error { return readmeDownloads(ctx, client) },
 		"webhooks": func() error {
 			return readmeWebhooks(ctx, client, recorder, signedWebhook(exampleSecret, time.Now(), exampleEvent))
 		},

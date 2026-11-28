@@ -232,6 +232,14 @@ type vectorsFile struct {
 			DecodeError bool `json:"decode_error"`
 		} `json:"expect"`
 	} `json:"chat_stream_replay"`
+
+	ContentDisposition []struct {
+		Name   string  `json:"name"`
+		Header *string `json:"header"`
+		Expect struct {
+			Filename *string `json:"filename"`
+		} `json:"expect"`
+	} `json:"content_disposition"`
 }
 
 type vecChatStream struct {
@@ -668,9 +676,9 @@ func TestConformanceRetryPolicy(t *testing.T) {
 				}
 				return
 			case c.Method == "PATCH" && c.CallerKey:
-				_, err = client.Chat.Update(ctx, "dlg_1", ChatDialogPatch{}, WithIdempotencyKey("caller-key"))
+				_, err = client.Automations.UpdateHook(ctx, "hook_1", AutomationHookPatch{}, WithIdempotencyKey("caller-key"))
 			case c.Method == "PATCH":
-				_, err = client.Chat.Update(ctx, "dlg_1", ChatDialogPatch{})
+				_, err = client.Automations.UpdateHook(ctx, "hook_1", AutomationHookPatch{})
 			default:
 				t.Fatalf("no operation for method %s", c.Method)
 			}
@@ -867,6 +875,41 @@ func TestConformanceSSE(t *testing.T) {
 	}
 	if len(v.SSE) == 0 {
 		t.Fatal("no cases")
+	}
+}
+
+// The file name of a download: the vectors run through the parser and through a real call.
+func TestConformanceContentDisposition(t *testing.T) {
+	v := loadVectors(t)
+	if len(v.ContentDisposition) == 0 {
+		t.Fatal("no content_disposition vectors")
+	}
+	for _, c := range v.ContentDisposition {
+		want := ""
+		if c.Expect.Filename != nil {
+			want = *c.Expect.Filename
+		}
+		header := ""
+		if c.Header != nil {
+			header = *c.Header
+		}
+		if got := contentDispositionFilename(header); got != want {
+			t.Errorf("%s: filename %q, want %q", c.Name, got, want)
+		}
+		m := newMock(t, func(w http.ResponseWriter, _ *http.Request, _ int) {
+			if c.Header != nil {
+				w.Header().Set("Content-Disposition", *c.Header)
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte{0, 1, 2})
+		})
+		file, err := m.client(nil).Chat.DownloadFile(context.Background(), "d1", "file_1")
+		if err != nil {
+			t.Fatalf("%s: %v", c.Name, err)
+		}
+		if file.Filename != want {
+			t.Errorf("%s: DownloadFile filename %q, want %q", c.Name, file.Filename, want)
+		}
 	}
 }
 

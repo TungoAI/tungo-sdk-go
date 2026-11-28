@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"strings"
 
-	tungo "github.com/TungoAI/tungo-sdk-go"
+	tungo "github.com/TungoAI/tungo-sdk-go/v2"
 )
 
 func main() {

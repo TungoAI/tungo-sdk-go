@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-// WorkspacesService: Организации (workspace), доступные ключу API
+// WorkspacesService: Организации (workspace), доступные ключу API, и остаток баланса платформы
 //
 // Reach it through the Workspaces field of a Client.
 type WorkspacesService struct {
@@ -25,6 +25,22 @@ func (s *WorkspacesService) List(ctx context.Context, opts ...Option) (*ListWork
 		auth:   authKey,
 	}
 	out := new(ListWorkspacesResponse)
+	if err := s.client.do(ctx, &spec, out, opts); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetBalance: Остаток баланса платформы
+//
+// GET /v1/workspaces/{ws}/platform/balance
+func (s *WorkspacesService) GetBalance(ctx context.Context, opts ...Option) (*PlatformBalance, error) {
+	spec := requestSpec{
+		method: "GET",
+		path:   "/v1/workspaces/{ws}/platform/balance",
+		auth:   authKey,
+	}
+	out := new(PlatformBalance)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -70,299 +86,7 @@ func (s *CompaniesService) Get(ctx context.Context, opts ...Option) (*Company, e
 	return out, nil
 }
 
-// PlatformService: Баланс платформы, книга движений, отчёты о расходе, лимиты, аудит и тарифы моделей
-//
-// Reach it through the Platform field of a Client.
-type PlatformService struct {
-	client *Client
-}
-
-// ListUsageRates: Цены моделей
-//
-// GET /v1/usage-rates
-func (s *PlatformService) ListUsageRates(ctx context.Context, opts ...Option) (*ListUsageRatesResponse, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/usage-rates",
-		auth:   authNone,
-	}
-	out := new(ListUsageRatesResponse)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GetAccount: Счёт платформы
-//
-// GET /v1/workspaces/{ws}/platform/account
-func (s *PlatformService) GetAccount(ctx context.Context, opts ...Option) (*PlatformAccount, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/account",
-		auth:   authKey,
-	}
-	out := new(PlatformAccount)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// PlatformGetAuditParams holds the query and header parameters of PlatformService.GetAudit.
-type PlatformGetAuditParams struct {
-	// Только действия, начинающиеся с этой строки: «workspace.member_» — все действия с сотрудниками, «api_key.created» — точное
-	Action *string
-	// Только действия, сделанные этим ключом API (key_…)
-	APIKeyID *string
-	// next_cursor прошлой страницы (aud_…); без него — самые свежие записи
-	//
-	// Leave it empty for the first page; Next and the auto-paging iterator fill it in.
-	Cursor *string
-	// Записи не раньше этого момента, ISO 8601 (включительно). Нет — с самого начала
-	From *string
-	// Записей на странице, 1–200; по умолчанию 50
-	Limit *int64
-	// Записи раньше этого момента, ISO 8601 (не включительно); позже from. Нет — до сейчас
-	To *string
-}
-
-// GetAudit: Журнал действий организации
-//
-// GET /v1/workspaces/{ws}/platform/audit
-//
-// It returns one page; call Next on it for the following one, or use GetAuditAll to iterate over every item.
-func (s *PlatformService) GetAudit(ctx context.Context, params *PlatformGetAuditParams, opts ...Option) (*GetWorkspacePlatformAuditResponse, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/audit",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "action", params.Action)
-		addQuery(spec.query, "api_key_id", params.APIKeyID)
-		addQuery(spec.query, "cursor", params.Cursor)
-		addQuery(spec.query, "from", params.From)
-		addQuery(spec.query, "limit", params.Limit)
-		addQuery(spec.query, "to", params.To)
-	}
-	out := new(GetWorkspacePlatformAuditResponse)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	out.next = func(ctx context.Context, cursor string) (*GetWorkspacePlatformAuditResponse, error) {
-		var p PlatformGetAuditParams
-		if params != nil {
-			p = *params
-		}
-		p.Cursor = &cursor
-		return s.GetAudit(ctx, &p, opts...)
-	}
-	return out, nil
-}
-
-// GetAuditAll iterates over every item of every page of GetAudit, fetching the next page only when the
-// loop needs it. The filters in params and the request options apply to every page. The
-// iteration stops at the first error, which is yielded once; a cursor that repeats is
-// reported as a *PaginationError instead of looping forever.
-func (s *PlatformService) GetAuditAll(ctx context.Context, params *PlatformGetAuditParams, opts ...Option) iter.Seq2[AuditEntry, error] {
-	return autoPage[AuditEntry, *GetWorkspacePlatformAuditResponse](func() (*GetWorkspacePlatformAuditResponse, error) {
-		return s.GetAudit(ctx, params, opts...)
-	}, func(p *GetWorkspacePlatformAuditResponse) (*GetWorkspacePlatformAuditResponse, error) {
-		return p.Next(ctx)
-	})
-}
-
-// PlatformGetLedgerParams holds the query and header parameters of PlatformService.GetLedger.
-type PlatformGetLedgerParams struct {
-	// next_cursor прошлой страницы (led_…); без него — первая страница
-	//
-	// Leave it empty for the first page; Next and the auto-paging iterator fill it in.
-	Cursor *string
-	// Сколько движений на странице: 1–200, по умолчанию 100
-	Limit *int64
-}
-
-// GetLedger: Движения баланса платформы
-//
-// GET /v1/workspaces/{ws}/platform/ledger
-//
-// It returns one page; call Next on it for the following one, or use GetLedgerAll to iterate over every item.
-func (s *PlatformService) GetLedger(ctx context.Context, params *PlatformGetLedgerParams, opts ...Option) (*GetWorkspacePlatformLedgerResponse, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/ledger",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "cursor", params.Cursor)
-		addQuery(spec.query, "limit", params.Limit)
-	}
-	out := new(GetWorkspacePlatformLedgerResponse)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	out.next = func(ctx context.Context, cursor string) (*GetWorkspacePlatformLedgerResponse, error) {
-		var p PlatformGetLedgerParams
-		if params != nil {
-			p = *params
-		}
-		p.Cursor = &cursor
-		return s.GetLedger(ctx, &p, opts...)
-	}
-	return out, nil
-}
-
-// GetLedgerAll iterates over every item of every page of GetLedger, fetching the next page only when the
-// loop needs it. The filters in params and the request options apply to every page. The
-// iteration stops at the first error, which is yielded once; a cursor that repeats is
-// reported as a *PaginationError instead of looping forever.
-func (s *PlatformService) GetLedgerAll(ctx context.Context, params *PlatformGetLedgerParams, opts ...Option) iter.Seq2[PlatformLedgerEntry, error] {
-	return autoPage[PlatformLedgerEntry, *GetWorkspacePlatformLedgerResponse](func() (*GetWorkspacePlatformLedgerResponse, error) {
-		return s.GetLedger(ctx, params, opts...)
-	}, func(p *GetWorkspacePlatformLedgerResponse) (*GetWorkspacePlatformLedgerResponse, error) {
-		return p.Next(ctx)
-	})
-}
-
-// PlatformListLimitsParams holds the query and header parameters of PlatformService.ListLimits.
-type PlatformListLimitsParams struct {
-	// Ключ (key_…), чьи счётчики показать. По ключу API — только он сам; нет — по ключу API он сам, по сессии — только значения пределов
-	APIKeyID *string
-}
-
-// ListLimits: Пределы платформы и сколько осталось
-//
-// GET /v1/workspaces/{ws}/platform/limits
-func (s *PlatformService) ListLimits(ctx context.Context, params *PlatformListLimitsParams, opts ...Option) (*PlatformLimits, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/limits",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "api_key_id", params.APIKeyID)
-	}
-	out := new(PlatformLimits)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// PlatformListRequestsParams holds the query and header parameters of PlatformService.ListRequests.
-type PlatformListRequestsParams struct {
-	// Только запросы этого ключа (key_…)
-	APIKeyID *string
-	// Номер, который вы сами прислали в заголовке x-request-id
-	ClientRequestID *string
-	// next_cursor прошлой страницы (rlg_…); без него — первая страница
-	//
-	// Leave it empty for the first page; Next and the auto-paging iterator fill it in.
-	Cursor *string
-	// Начало периода, ISO 8601 (включительно)
-	From *string
-	// Сколько запросов на странице: 1–200, по умолчанию 100
-	Limit *int64
-	// Адрес начинается с этой строки
-	Path *string
-	// Номер запроса (req_…) — из заголовка x-request-id ответа или из ошибки
-	RequestID *string
-	// Точный статус HTTP
-	Status *int64
-	// Статус не больше
-	StatusMax *int64
-	// Статус не меньше (400 — все отказы и ошибки)
-	StatusMin *int64
-	// Конец периода, ISO 8601 (не включительно); позже from
-	To *string
-}
-
-// ListRequests: Журнал запросов по ключам
-//
-// GET /v1/workspaces/{ws}/platform/requests
-//
-// It returns one page; call Next on it for the following one, or use ListRequestsAll to iterate over every item.
-func (s *PlatformService) ListRequests(ctx context.Context, params *PlatformListRequestsParams, opts ...Option) (*ListWorkspacePlatformRequestsResponse, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/requests",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "api_key_id", params.APIKeyID)
-		addQuery(spec.query, "client_request_id", params.ClientRequestID)
-		addQuery(spec.query, "cursor", params.Cursor)
-		addQuery(spec.query, "from", params.From)
-		addQuery(spec.query, "limit", params.Limit)
-		addQuery(spec.query, "path", params.Path)
-		addQuery(spec.query, "request_id", params.RequestID)
-		addQuery(spec.query, "status", params.Status)
-		addQuery(spec.query, "status_max", params.StatusMax)
-		addQuery(spec.query, "status_min", params.StatusMin)
-		addQuery(spec.query, "to", params.To)
-	}
-	out := new(ListWorkspacePlatformRequestsResponse)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	out.next = func(ctx context.Context, cursor string) (*ListWorkspacePlatformRequestsResponse, error) {
-		var p PlatformListRequestsParams
-		if params != nil {
-			p = *params
-		}
-		p.Cursor = &cursor
-		return s.ListRequests(ctx, &p, opts...)
-	}
-	return out, nil
-}
-
-// ListRequestsAll iterates over every item of every page of ListRequests, fetching the next page only when the
-// loop needs it. The filters in params and the request options apply to every page. The
-// iteration stops at the first error, which is yielded once; a cursor that repeats is
-// reported as a *PaginationError instead of looping forever.
-func (s *PlatformService) ListRequestsAll(ctx context.Context, params *PlatformListRequestsParams, opts ...Option) iter.Seq2[PlatformRequest, error] {
-	return autoPage[PlatformRequest, *ListWorkspacePlatformRequestsResponse](func() (*ListWorkspacePlatformRequestsResponse, error) {
-		return s.ListRequests(ctx, params, opts...)
-	}, func(p *ListWorkspacePlatformRequestsResponse) (*ListWorkspacePlatformRequestsResponse, error) {
-		return p.Next(ctx)
-	})
-}
-
-// PlatformGetUsageParams holds the query and header parameters of PlatformService.GetUsage.
-type PlatformGetUsageParams struct {
-	// Начало периода, ISO 8601 (включительно). Нет — 1-е число текущего месяца, 00:00 по Алматы
-	From *string
-	// Конец периода, ISO 8601 (не включительно); позже from и не дальше 400 дней от него. Нет — сейчас
-	To *string
-}
-
-// GetUsage: Расход платформы
-//
-// GET /v1/workspaces/{ws}/platform/usage
-func (s *PlatformService) GetUsage(ctx context.Context, params *PlatformGetUsageParams, opts ...Option) (*PlatformUsage, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/platform/usage",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "from", params.From)
-		addQuery(spec.query, "to", params.To)
-	}
-	out := new(PlatformUsage)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// APIKeysService: Сведения о текущем ключе API и статистика его расхода
+// APIKeysService: Сведения о текущем ключе API: права, срок, траты месяца и почему вызовы не пройдут
 //
 // Reach it through the APIKeys field of a Client.
 type APIKeysService struct {
@@ -379,67 +103,6 @@ func (s *APIKeysService) GetCurrent(ctx context.Context, opts ...Option) (*ApiKe
 		auth:   authKey,
 	}
 	out := new(ApiKeySelf)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// APIKeysGetCurrentUsageParams holds the query and header parameters of APIKeysService.GetCurrentUsage.
-type APIKeysGetCurrentUsageParams struct {
-	// Начало периода, ISO 8601 (включительно). Нет — 1-е число текущего месяца, 00:00 по Алматы
-	From *string
-	// Конец периода, ISO 8601 (не включительно); позже from и не дальше 400 дней от него. Нет — сейчас
-	To *string
-}
-
-// GetCurrentUsage: Расход ключа, по которому пришёл запрос
-//
-// GET /v1/api-key/usage
-func (s *APIKeysService) GetCurrentUsage(ctx context.Context, params *APIKeysGetCurrentUsageParams, opts ...Option) (*ApiKeyUsage, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/api-key/usage",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "from", params.From)
-		addQuery(spec.query, "to", params.To)
-	}
-	out := new(ApiKeyUsage)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// APIKeysGetUsageParams holds the query and header parameters of APIKeysService.GetUsage.
-type APIKeysGetUsageParams struct {
-	// Начало периода, ISO 8601 (включительно). Нет — 1-е число текущего месяца, 00:00 по Алматы
-	From *string
-	// Конец периода, ISO 8601 (не включительно); позже from и не дальше 400 дней от него. Нет — сейчас
-	To *string
-}
-
-// GetUsage: Расход ключа за период
-//
-// GET /v1/workspaces/{ws}/api-keys/{id}/usage
-//
-// Required permission: Владелец или админ workspace; по ключу — свой.
-func (s *APIKeysService) GetUsage(ctx context.Context, id string, params *APIKeysGetUsageParams, opts ...Option) (*ApiKeyUsage, error) {
-	spec := requestSpec{
-		method:   "GET",
-		path:     "/v1/workspaces/{ws}/api-keys/{id}/usage",
-		pathArgs: []string{"id", id},
-		auth:     authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "from", params.From)
-		addQuery(spec.query, "to", params.To)
-	}
-	out := new(ApiKeyUsage)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -841,24 +504,6 @@ func (s *WebhooksService) ResendMessage(ctx context.Context, id string, body Web
 	return s.client.do(ctx, &spec, nil, opts)
 }
 
-// GetUsage: Счётчик событий месяца
-//
-// GET /v1/workspaces/{ws}/webhooks/usage
-//
-// Required permission: Владелец или админ workspace; ключ API — с правом webhooks.manage.
-func (s *WebhooksService) GetUsage(ctx context.Context, opts ...Option) (*WebhookUsage, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/workspaces/{ws}/webhooks/usage",
-		auth:   authKey,
-	}
-	out := new(WebhookUsage)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ChatService: Диалоги с ИИ-бухгалтером: вопросы, потоковый чат (SSE), подсчёт токенов и история
 //
 // Reach it through the Chat field of a Client.
@@ -1050,96 +695,6 @@ func (s *ChatService) ListFilesAll(ctx context.Context, params *ChatListFilesPar
 	})
 }
 
-// ChatListMentionsParams holds the query and header parameters of ChatService.ListMentions.
-type ChatListMentionsParams struct {
-	// Сколько на каждый вид: 1–20, по умолчанию 8
-	Limit *int64
-	// Что ищем: часть номера, названия, имени; у контрагента — от 2 знаков (или БИН цифрами). Пусто — свежие предложения и задания
-	Q *string
-	// Виды через запятую; по умолчанию все. `proposal` — предложение (документ для 1С), id — его номер P-000123; `counterparty` — контрагент из 1С компании, id — его ссылка из поиска; `batch` — задание пачки (разбор выписки, в…
-	Types *string
-}
-
-// ListMentions: Что можно упомянуть через «@»
-//
-// GET /v1/companies/{co}/chat/mentions
-//
-// Required permission: chat.use.
-func (s *ChatService) ListMentions(ctx context.Context, params *ChatListMentionsParams, opts ...Option) (*ChatMentionSearch, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/companies/{co}/chat/mentions",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "limit", params.Limit)
-		addQuery(spec.query, "q", params.Q)
-		addQuery(spec.query, "types", params.Types)
-	}
-	out := new(ChatMentionSearch)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// ChatGetRatingOptionsParams holds the query and header parameters of ChatService.GetRatingOptions.
-type ChatGetRatingOptionsParams struct {
-	// Язык названий причин; по умолчанию ru
-	Lang *ListCompanyChatRatingOptionsLang
-}
-
-// GetRatingOptions: Что нужно форме оценки: причины «вниз» и предел комментария
-//
-// GET /v1/companies/{co}/chat/rating-options
-//
-// Required permission: chat.use.
-func (s *ChatService) GetRatingOptions(ctx context.Context, params *ChatGetRatingOptionsParams, opts ...Option) (*ChatRatingOptions, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/companies/{co}/chat/rating-options",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "lang", params.Lang)
-	}
-	out := new(ChatRatingOptions)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// ChatListSuggestionsParams holds the query and header parameters of ChatService.ListSuggestions.
-type ChatListSuggestionsParams struct {
-	// Язык текстов — язык интерфейса кабинета. Не передан — язык ответов ИИ из профиля (`kk` — по-казахски, иначе по-русски)
-	Lang *ListCompanyChatSuggestionsLang
-}
-
-// ListSuggestions: Подсказки пустого чата
-//
-// GET /v1/companies/{co}/chat/suggestions
-//
-// Required permission: chat.use.
-func (s *ChatService) ListSuggestions(ctx context.Context, params *ChatListSuggestionsParams, opts ...Option) (*ChatSuggestions, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/companies/{co}/chat/suggestions",
-		auth:   authKey,
-	}
-	if params != nil {
-		spec.query = url.Values{}
-		addQuery(spec.query, "lang", params.Lang)
-	}
-	out := new(ChatSuggestions)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // CreateUpload: Начать загрузку архива к сообщению
 //
 // POST /v1/companies/{co}/chat/uploads
@@ -1206,26 +761,6 @@ func (s *ChatService) Get(ctx context.Context, id string, opts ...Option) (*Chat
 		auth:     authKey,
 	}
 	out := new(ChatDialog)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Update: Переименовать свой разговор
-//
-// PATCH /v1/companies/{co}/chat/{id}
-//
-// Required permission: chat.use.
-func (s *ChatService) Update(ctx context.Context, id string, body ChatDialogPatch, opts ...Option) (*ChatDialogRenamed, error) {
-	spec := requestSpec{
-		method:   "PATCH",
-		path:     "/v1/companies/{co}/chat/{id}",
-		pathArgs: []string{"id", id},
-		auth:     authKey,
-	}
-	spec.body, spec.hasBody = body, true
-	out := new(ChatDialogRenamed)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -1323,82 +858,22 @@ func (s *ChatService) ListEvents(ctx context.Context, id string, params *ChatLis
 	return openChatStream(ctx, s.client, &spec, opts)
 }
 
-// RateMessage: Оценить ответ ИИ: палец вверх или вниз
+// DownloadFile: Скачать файл, собранный ИИ
 //
-// PUT /v1/companies/{co}/chat/{id}/messages/{turn}/rating
+// GET /v1/companies/{co}/chat/{id}/files/{file}
 //
-// Required permission: chat.use.
-func (s *ChatService) RateMessage(ctx context.Context, id string, turn string, body ChatMessageRatingBody, opts ...Option) (*ChatMessageRated, error) {
-	spec := requestSpec{
-		method:   "PUT",
-		path:     "/v1/companies/{co}/chat/{id}/messages/{turn}/rating",
-		pathArgs: []string{"id", id, "turn", turn},
-		auth:     authKey,
-	}
-	spec.body, spec.hasBody = body, true
-	out := new(ChatMessageRated)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// DeleteMessageRating: Снять свою оценку ответа
-//
-// DELETE /v1/companies/{co}/chat/{id}/messages/{turn}/rating
+// The answer is a file: the call returns its bytes, its file name and its media type, read into memory.
 //
 // Required permission: chat.use.
-func (s *ChatService) DeleteMessageRating(ctx context.Context, id string, turn string, opts ...Option) (*ChatMessageRated, error) {
+func (s *ChatService) DownloadFile(ctx context.Context, id string, file string, opts ...Option) (*DownloadedFile, error) {
 	spec := requestSpec{
-		method:   "DELETE",
-		path:     "/v1/companies/{co}/chat/{id}/messages/{turn}/rating",
-		pathArgs: []string{"id", id, "turn", turn},
+		method:   "GET",
+		path:     "/v1/companies/{co}/chat/{id}/files/{file}",
+		pathArgs: []string{"id", id, "file", file},
 		auth:     authKey,
+		download: true,
 	}
-	out := new(ChatMessageRated)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Rate: Оценить разговор целиком: от 1 до 5
-//
-// PUT /v1/companies/{co}/chat/{id}/rating
-//
-// Required permission: chat.use.
-func (s *ChatService) Rate(ctx context.Context, id string, body ChatDialogRatingBody, opts ...Option) (*ChatDialogRated, error) {
-	spec := requestSpec{
-		method:   "PUT",
-		path:     "/v1/companies/{co}/chat/{id}/rating",
-		pathArgs: []string{"id", id},
-		auth:     authKey,
-	}
-	spec.body, spec.hasBody = body, true
-	out := new(ChatDialogRated)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// DismissRating: Не сейчас: закрыть предложение оценить разговор
-//
-// POST /v1/companies/{co}/chat/{id}/rating/dismiss
-//
-// Required permission: chat.use.
-func (s *ChatService) DismissRating(ctx context.Context, id string, opts ...Option) (*ChatRatingDismissed, error) {
-	spec := requestSpec{
-		method:   "POST",
-		path:     "/v1/companies/{co}/chat/{id}/rating/dismiss",
-		pathArgs: []string{"id", id},
-		auth:     authKey,
-	}
-	out := new(ChatRatingDismissed)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return s.client.download(ctx, &spec, opts)
 }
 
 // Stop: Остановить ход или закрыть открытый вопрос
@@ -1414,25 +889,6 @@ func (s *ChatService) Stop(ctx context.Context, id string, opts ...Option) (*Cha
 		auth:     authKey,
 	}
 	out := new(ChatStopResult)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// TranslateThinking: Перевести размышление на русский
-//
-// POST /v1/companies/{co}/chat/{id}/thinking/{tid}/translate
-//
-// Required permission: chat.use.
-func (s *ChatService) TranslateThinking(ctx context.Context, id string, tid string, opts ...Option) (*ChatThinkingTranslation, error) {
-	spec := requestSpec{
-		method:   "POST",
-		path:     "/v1/companies/{co}/chat/{id}/thinking/{tid}/translate",
-		pathArgs: []string{"id", id, "tid", tid},
-		auth:     authKey,
-	}
-	out := new(ChatThinkingTranslation)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}
@@ -1591,6 +1047,34 @@ func (s *ProposalsService) Approve(ctx context.Context, id string, body *Approve
 		return nil, err
 	}
 	return out, nil
+}
+
+// ProposalsExportParams holds the query and header parameters of ProposalsService.Export.
+type ProposalsExportParams struct {
+	// Формат файла: xlsx — Excel (все листы); csv — первый лист (UTF-8 с BOM, разделитель — точка с запятой); pdf — все листы разделами на A4 (application/pdf, шрифт вложен: кириллица и казахские буквы). По умолчанию xlsx
+	Format *GetCompanyProposalExportFormat
+}
+
+// Export: Скачать документ файлом
+//
+// GET /v1/companies/{co}/proposals/{id}/export
+//
+// The answer is a file: the call returns its bytes, its file name and its media type, read into memory.
+//
+// Required permission: company.read.
+func (s *ProposalsService) Export(ctx context.Context, id string, params *ProposalsExportParams, opts ...Option) (*DownloadedFile, error) {
+	spec := requestSpec{
+		method:   "GET",
+		path:     "/v1/companies/{co}/proposals/{id}/export",
+		pathArgs: []string{"id", id},
+		auth:     authKey,
+		download: true,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "format", params.Format)
+	}
+	return s.client.download(ctx, &spec, opts)
 }
 
 // Reject: Отклонить с причиной
@@ -1880,6 +1364,34 @@ func (s *BatchesService) ListEvents(ctx context.Context, id string, opts ...Opti
 		stream:   true,
 	}
 	return openChatStream(ctx, s.client, &spec, opts)
+}
+
+// BatchesExportParams holds the query and header parameters of BatchesService.Export.
+type BatchesExportParams struct {
+	// Формат файла: xlsx — Excel (все листы); csv — первый лист (UTF-8 с BOM, разделитель — точка с запятой); pdf — все листы разделами на A4 (application/pdf, шрифт вложен: кириллица и казахские буквы). По умолчанию xlsx
+	Format *GetCompanyBatchExportFormat
+}
+
+// Export: Скачать результат задания файлом
+//
+// GET /v1/companies/{co}/batch/{id}/export
+//
+// The answer is a file: the call returns its bytes, its file name and its media type, read into memory.
+//
+// Required permission: company.read.
+func (s *BatchesService) Export(ctx context.Context, id string, params *BatchesExportParams, opts ...Option) (*DownloadedFile, error) {
+	spec := requestSpec{
+		method:   "GET",
+		path:     "/v1/companies/{co}/batch/{id}/export",
+		pathArgs: []string{"id", id},
+		auth:     authKey,
+		download: true,
+	}
+	if params != nil {
+		spec.query = url.Values{}
+		addQuery(spec.query, "format", params.Format)
+	}
+	return s.client.download(ctx, &spec, opts)
 }
 
 // Stop: Остановить задание
@@ -2811,25 +2323,6 @@ func (s *AutomationsService) GetAutonomy(ctx context.Context, opts ...Option) (*
 	return out, nil
 }
 
-// PutAutonomy: Изменить доверие ИИ в компании
-//
-// PUT /v1/companies/{co}/autonomy
-//
-// Required permission: workspace owner/admin (поднять) | automations.manage (снизить).
-func (s *AutomationsService) PutAutonomy(ctx context.Context, body CompanyAutonomyInput, opts ...Option) (*CompanyAutonomy, error) {
-	spec := requestSpec{
-		method: "PUT",
-		path:   "/v1/companies/{co}/autonomy",
-		auth:   authKey,
-	}
-	spec.body, spec.hasBody = body, true
-	out := new(CompanyAutonomy)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // VerificationService: Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API)
 //
 // Reach it through the Verification field of a Client.
@@ -2899,29 +2392,6 @@ func (s *VerificationService) Check(ctx context.Context, code string, body Verif
 	}
 	spec.body, spec.hasBody = body, true
 	out := new(VerifyCheck)
-	if err := s.client.do(ctx, &spec, out, opts); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// ReleasesService: Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API)
-//
-// Reach it through the Releases field of a Client.
-type ReleasesService struct {
-	client *Client
-}
-
-// List: Что скачать
-//
-// GET /v1/public/downloads
-func (s *ReleasesService) List(ctx context.Context, opts ...Option) (*Downloads, error) {
-	spec := requestSpec{
-		method: "GET",
-		path:   "/v1/public/downloads",
-		auth:   authNone,
-	}
-	out := new(Downloads)
 	if err := s.client.do(ctx, &spec, out, opts); err != nil {
 		return nil, err
 	}

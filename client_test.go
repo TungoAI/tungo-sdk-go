@@ -153,7 +153,7 @@ func TestMissingConfigurationFailsBeforeAnyRequest(t *testing.T) {
 	if !errors.As(err, &cfgErr) || !strings.Contains(err.Error(), "company") {
 		t.Errorf("missing company: got %T %v", err, err)
 	}
-	_, err = NewClient(WithBaseURL(m.srv.URL), WithAPIKey("k")).Platform.GetAccount(ctx)
+	_, err = NewClient(WithBaseURL(m.srv.URL), WithAPIKey("k")).Webhooks.ListEventTypes(ctx)
 	if !errors.As(err, &cfgErr) || !strings.Contains(err.Error(), "workspace") {
 		t.Errorf("missing workspace: got %T %v", err, err)
 	}
@@ -169,7 +169,7 @@ func TestMissingConfigurationFailsBeforeAnyRequest(t *testing.T) {
 }
 
 func TestAPIKeyGoesOnlyWhereTheContractRequiresIt(t *testing.T) {
-	m := newMock(t, respond(200, `{"data":[],"accepted":true,"event_id":"hev_1","duplicate":false,"run_ids":[]}`))
+	m := newMock(t, respond(200, `{"data":[],"keys":[],"accepted":true,"event_id":"hev_1","duplicate":false,"run_ids":[]}`))
 	// A default header tries to smuggle the key everywhere; the SDK must strip it.
 	client := m.client(nil, WithHeader("X-Api-Key", testKey), WithHeader("Authorization", "Bearer "+testKey), WithHeader("X-Trace", "t1"))
 	ctx := context.Background()
@@ -180,7 +180,7 @@ func TestAPIKeyGoesOnlyWhereTheContractRequiresIt(t *testing.T) {
 	if got := m.last(); got.Header.Get("x-api-key") != testKey || got.Header.Get("X-Trace") != "t1" {
 		t.Errorf("authenticated call: headers %v", got.Header)
 	}
-	if _, err := client.Platform.ListUsageRates(ctx); err != nil {
+	if _, err := client.Verification.ListKeys(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := m.last(); got.Header.Get("x-api-key") != "" || got.Header.Get("Authorization") != "" || got.Header.Get("X-Trace") != "t1" {
@@ -196,7 +196,7 @@ func TestAPIKeyGoesOnlyWhereTheContractRequiresIt(t *testing.T) {
 	// Public endpoints and hooks work without any key at all.
 	t.Setenv("TUNGO_API_KEY", "")
 	anon := NewClient(WithBaseURL(m.srv.URL))
-	if _, err := anon.Platform.ListUsageRates(ctx); err != nil {
+	if _, err := anon.Verification.ListKeys(ctx); err != nil {
 		t.Errorf("public endpoint without a key: %v", err)
 	}
 	if _, err := anon.SendHook(ctx, "tok", map[string]int{"a": 1}, nil); err != nil {
@@ -538,12 +538,12 @@ func TestQueryAndPathEncoding(t *testing.T) {
 	if got := m.last().URI; got != want {
 		t.Errorf("URI\n got %s\nwant %s", got, want)
 	}
-	_, err = client.Platform.GetUsage(ctx, &PlatformGetUsageParams{From: Ptr("2026-11-09T15:00:00+05:00")})
+	_, err = client.Automations.ListRuns(ctx, &AutomationsListRunsParams{Scenario: Ptr("scn/1 ?"), ExternalID: Ptr("2026-11-09T15:00:00+05:00"), Limit: Ptr(int64(0))})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := m.last().URI; !strings.HasSuffix(got, "?from=2026-11-09T15%3A00%3A00%2B05%3A00") {
-		t.Errorf("date-time query: %s", got)
+	if got := m.last().URI; !strings.HasSuffix(got, "/automations/runs?external_id=2026-11-09T15%3A00%3A00%2B05%3A00&limit=0&scenario=scn%2F1+%3F") {
+		t.Errorf("query with a zero limit and escaping: %s", got)
 	}
 	// nil params: no query string at all.
 	if _, err := client.Proposals.List(ctx, nil); err != nil {
@@ -569,8 +569,8 @@ func TestQueryAndPathEncoding(t *testing.T) {
 		if err := client.Webhooks.DeleteEndpoint(ctx, id); !errors.As(err, &verr) {
 			t.Errorf("DeleteEndpoint(%q): %v", id, err)
 		}
-		if _, err := client.Chat.Update(ctx, id, ChatDialogPatch{Title: "x"}); !errors.As(err, &verr) {
-			t.Errorf("Update(%q): %v", id, err)
+		if _, err := client.Automations.UpdateHook(ctx, id, AutomationHookPatch{Name: Ptr("x")}); !errors.As(err, &verr) {
+			t.Errorf("UpdateHook(%q): %v", id, err)
 		}
 	}
 	if _, err := client.Chat.List(ctx, nil, WithCompanyID("..")); !errors.As(err, &verr) {
@@ -611,18 +611,25 @@ func TestRequestBodies(t *testing.T) {
 		t.Errorf("%s %v", got.Method, got.Header)
 	}
 
-	// A required nullable field is always present; required lists and maps are never null.
-	if _, err := client.Automations.PutAutonomy(ctx, CompanyAutonomyInput{}); err != nil {
+	// PUT: a required zero value is always sent, an optional nullable field only when set.
+	if _, err := client.Automations.PutState(ctx, AutomationStateInput{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := body(); got != `{"levels":{},"max_amount_per_day_tiyn":null,"max_amount_per_document_tiyn":null}` {
-		t.Errorf("CompanyAutonomyInput{} = %s", got)
+	if got := m.last(); got.Method != "PUT" || string(got.Body) != `{"paused":false}` {
+		t.Errorf("AutomationStateInput{} = %s %s", got.Method, got.Body)
 	}
-	if _, err := client.Automations.PutAutonomy(ctx, CompanyAutonomyInput{MaxAmountPerDayTiyn: Value(int64(0))}); err != nil {
+	if _, err := client.Automations.PutState(ctx, AutomationStateInput{Reason: Null[string]()}); err != nil {
 		t.Fatal(err)
 	}
-	if got := body(); !strings.Contains(got, `"max_amount_per_day_tiyn":0,`) {
-		t.Errorf("explicit zero lost: %s", got)
+	if got := body(); got != `{"paused":false,"reason":null}` {
+		t.Errorf("explicit null lost: %s", got)
+	}
+	// Required lists are never null and required zero amounts are kept.
+	if _, err := client.Automations.PutScenario(ctx, "scn_1", AutomationScenarioInput{Name: "n", AutoApprove: Value(AutomationScenarioInputAutoApprove{})}); err != nil {
+		t.Fatal(err)
+	}
+	if got := body(); !strings.Contains(got, `"auto_approve":{"kinds":[],"max_amount_per_day_tiyn":0,"max_amount_per_document_tiyn":0}`) {
+		t.Errorf("AutomationScenarioInputAutoApprove{} = %s", got)
 	}
 
 	// An optional body: nil sends no body at all, a value sends JSON.
@@ -708,14 +715,14 @@ func TestDecodingIsForwardCompatible(t *testing.T) {
 	ctx := context.Background()
 
 	// Unknown fields are kept, unknown enum values survive, int64 is exact.
-	m := newMock(t, respond(200, `{"data":[{"id":"ple_1","at":"2026-11-09T10:00:00Z","amount_tiyn":9007199254740993,"balance_after_tiyn":-9223372036854775808,"api_key_id":null,"kind":"brand_new_kind","new_field":{"a":[1,2]}}],"next_cursor":null,"future":true}`))
-	page, err := m.client(nil).Platform.GetLedger(ctx, nil)
+	m := newMock(t, respond(200, `{"data":[{"id":"run_1","created_at":"2026-11-09T10:00:00Z","cost_tiyn":9007199254740993,"attempt":-9223372036854775808,"event_id":null,"state":"brand_new_state","new_field":{"a":[1,2]}}],"next_cursor":null,"future":true}`))
+	page, err := m.client(nil).Automations.ListRuns(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	entry := page.Data[0]
-	if entry.AmountTiyn != 9007199254740993 || entry.BalanceAfterTiyn != math.MinInt64 {
-		t.Errorf("int64 not exact: %d %d", entry.AmountTiyn, entry.BalanceAfterTiyn)
+	if entry.CostTiyn == nil || *entry.CostTiyn != 9007199254740993 || entry.Attempt != math.MinInt64 {
+		t.Errorf("int64 not exact: %v %d", entry.CostTiyn, entry.Attempt)
 	}
 	if string(entry.ExtraFields()["new_field"]) != `{"a":[1,2]}` || len(entry.ExtraFields()) != 1 {
 		t.Errorf("unknown field lost: %v", entry.ExtraFields())
@@ -723,11 +730,11 @@ func TestDecodingIsForwardCompatible(t *testing.T) {
 	if string(page.ExtraFields()["future"]) != "true" || !strings.Contains(page.RawJSON(), `"future":true`) {
 		t.Errorf("page extras %v", page.ExtraFields())
 	}
-	if !strings.Contains(entry.RawJSON(), "brand_new_kind") {
+	if entry.State != "brand_new_state" || !strings.Contains(entry.RawJSON(), "brand_new_state") {
 		t.Errorf("unknown enum value lost: %s", entry.RawJSON())
 	}
 	reencoded, err := json.Marshal(entry)
-	if err != nil || !strings.Contains(string(reencoded), `"amount_tiyn":9007199254740993`) {
+	if err != nil || !strings.Contains(string(reencoded), `"cost_tiyn":9007199254740993`) {
 		t.Errorf("re-encoding: %s %v", reencoded, err)
 	}
 
@@ -2404,5 +2411,99 @@ func TestErrorBodyIsCapped(t *testing.T) {
 	var resp *Response
 	if _, err := m.client(nil).Workspaces.List(context.Background(), WithResponseInto(&resp)); err != nil || len(resp.Body) < len(huge) {
 		t.Errorf("success: %v, %d bytes", err, len(resp.Body))
+	}
+}
+
+// ---- file downloads ---------------------------------------------------------------------------
+
+var fileBytes = []byte{'P', 'K', 3, 4, 0, 0xff, 0xfe, 0x80, '\n', '\r', 0}
+
+const xlsxType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+func serveFile(disposition string) func(http.ResponseWriter, *http.Request, int) {
+	return func(w http.ResponseWriter, _ *http.Request, _ int) {
+		w.Header().Set("Content-Type", xlsxType)
+		if disposition != "" {
+			w.Header().Set("Content-Disposition", disposition)
+		}
+		w.Header().Set("x-request-id", "req_file")
+		_, _ = w.Write(fileBytes)
+	}
+}
+
+func TestDownloadReturnsTheBytesNameAndType(t *testing.T) {
+	m := newMock(t, serveFile(`attachment; filename="Otchet.xlsx"; filename*=UTF-8''%D0%9E%D1%82%D1%87%D1%91%D1%82.xlsx`))
+	file, err := m.client(nil).Chat.DownloadFile(context.Background(), "dlg 1", "file_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(file.Content) != string(fileBytes) {
+		t.Errorf("content %v, want %v", file.Content, fileBytes)
+	}
+	if file.Filename != "Отчёт.xlsx" || file.ContentType != xlsxType || file.RequestID() != "req_file" {
+		t.Errorf("file %v, request id %q", file, file.RequestID())
+	}
+	if file.Response == nil || file.Response.StatusCode != 200 || file.Response.Attempts != 1 {
+		t.Errorf("response %+v", file.Response)
+	}
+	if s := fmt.Sprint(file); strings.Contains(s, "PK") || !strings.Contains(s, "Size: 11") {
+		t.Errorf("String() = %s: the bytes must not be printed", s)
+	}
+	got := m.last()
+	if got.Method != "GET" || got.URI != "/v1/companies/co_1/chat/dlg%201/files/file_1" {
+		t.Errorf("%s %s", got.Method, got.URI)
+	}
+	if got.Header.Get("Accept") != "*/*" || got.Header.Get("x-api-key") != testKey {
+		t.Errorf("Accept %q, x-api-key %q", got.Header.Get("Accept"), got.Header.Get("x-api-key"))
+	}
+}
+
+func TestDownloadQueryAndMissingName(t *testing.T) {
+	m := newMock(t, serveFile(""))
+	format := GetCompanyProposalExportFormatPdf
+	file, err := m.client(nil).Proposals.Export(context.Background(), "P-000123", &ProposalsExportParams{Format: &format})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.last().URI; got != "/v1/companies/co_1/proposals/P-000123/export?format=pdf" {
+		t.Errorf("URI %q", got)
+	}
+	if file.Filename != "" || len(file.Content) != len(fileBytes) {
+		t.Errorf("file %v", file)
+	}
+	if _, err := m.client(nil).Batches.Export(context.Background(), "bat_1", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.last().URI; got != "/v1/companies/co_1/batch/bat_1/export" {
+		t.Errorf("URI %q", got)
+	}
+}
+
+func TestDownloadErrorsAndRetries(t *testing.T) {
+	notFound := `{"type":"error","error":{"type":"not_found_error","message":"Файл не найден"},"request_id":"req_404"}`
+	m := newMock(t, respond(404, notFound))
+	_, err := m.client(nil).Chat.DownloadFile(context.Background(), "d1", "file_x")
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 404 || apiErr.Kind != KindNotFound || apiErr.RequestID != "req_404" {
+		t.Fatalf("err = %v", err)
+	}
+	if len(m.requests()) != 1 {
+		t.Errorf("a 404 must not be retried: %d requests", len(m.requests()))
+	}
+
+	var sleeps []time.Duration
+	m = newMock(t, func(w http.ResponseWriter, r *http.Request, n int) {
+		if n == 1 {
+			respond(503, errorBody)(w, r, n)
+			return
+		}
+		serveFile(`attachment; filename="a.pdf"`)(w, r, n)
+	})
+	file, err := m.client(&sleeps).Batches.Export(context.Background(), "bat_1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.Filename != "a.pdf" || file.Response.Attempts != 2 || len(sleeps) != 1 {
+		t.Errorf("file %v, attempts %d, sleeps %v", file, file.Response.Attempts, sleeps)
 	}
 }

@@ -3,22 +3,22 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo02.svg" />
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" />
-  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" width="240" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" />
+  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" width="240" />
 </picture>
 
 # Go үшін Tungo SDK
 
 **Tungo платформасының API-іне арналған ресми Go кітапханасы**
 
-[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go)
+[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go/v2.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go/v2)
 [![CI](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml/badge.svg)](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/TungoAI/tungo-sdk-go/blob/main/LICENSE)
 
 [English](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md) · [Русский](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.ru.md) · **Қазақша**
 
-[tungo.kz](https://tungo.kz) · [Жылдам бастау](#жылдам-бастау) · [API анықтамалығы](#api-анықтамалығы) · [Өзгерістер тарихы](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Өтініштер](https://github.com/TungoAI/tungo-sdk-go/issues)
+[tungo.kz](https://tungo.kz) · [Жылдам бастау](#жылдам-бастау) · [API анықтамалығы](#api-анықтамалығы) · [Өзгерістер тарихы](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Қолдау](https://app.tungo.kz)
 
 </div>
 
@@ -28,20 +28,18 @@ Tungo платформасының API-іне (`https://api.tungo.kz`) арна�
 
 Кітапхана API-дің OpenAPI келісімшартынан жасалады, сондықтан оның әдістері мен модельдері өзі жиналған келісімшартқа әрдайым сәйкес келеді.
 
-> Тек осы тілге қатысты ескертпелері бар толық нұсқа — [ағылшынша README](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md) файлында.
-
 ## Талаптар
 
-Қолдау көрсетілетін нұсқалар мен тәуелділіктер [ағылшынша README](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.md#requirements) файлында келтірілген.
+Go 1.24 немесе одан жаңа нұсқа. Модульдің стандартты кітапханадан тыс тәуелділіктері жоқ. CI оны Go 1.24 нұсқасында және ағымдағы тұрақты шығарылымда race detector қосулы күйде тексереді.
 
 ## Орнату
 
 ```sh
-go get github.com/TungoAI/tungo-sdk-go@latest
+go get github.com/TungoAI/tungo-sdk-go/v2@latest
 ```
 
 ```go
-import tungo "github.com/TungoAI/tungo-sdk-go"
+import tungo "github.com/TungoAI/tungo-sdk-go/v2"
 ```
 
 ## Жылдам бастау
@@ -57,7 +55,7 @@ import (
 	"fmt"
 	"log"
 
-	tungo "github.com/TungoAI/tungo-sdk-go"
+	tungo "github.com/TungoAI/tungo-sdk-go/v2"
 )
 
 func main() {
@@ -119,6 +117,8 @@ fmt.Println(len(dialogs.Data), "dialogs, request id", resp.RequestID())
 other := client.WithOptions(tungo.WithCompanyID("co_789"))
 ```
 
+Компания (`co_...`) мен ұйым (`ws_...`) да параметр арқылы беріледі: `WithCompanyID` және `WithWorkspaceID`, ал әдепкі мәндері `TUNGO_COMPANY_ID` және `TUNGO_WORKSPACE_ID` орта айнымалыларынан алынады. `WithAPIKey("")` пен `WithBaseURL("")` ескерілмейді, сондықтан өзіңіздің орнатылмаған айнымалыңыз әдепкі мәндерді күшінде қалдырады. Әр әдіс бірінші болып `context.Context`, соңғы болып `...tungo.Option` қабылдайды. `fmt` кілтті ешқашан шығармайды: клиенттің `%+v` көрінісінде `APIKey: [REDACTED]` тұрады. `WithMiddleware` әр әрекеттің HTTP айналымын орайды (журнал жүргізу, трассалау); `tungo.RedactHeaders` сіз журналға жазатын тақырыптардағы тіркелгі деректерін жасырады.
+
 ## Қателер
 
 Кез келген ақау — SDK-ның негізгі қатесінің ішкі түрі. HTTP қатесі бар жауап API қатесіне айналады: оның түрі жауап денесіндегі `error.type` өрісі бойынша, ал дене API-дің стандартты қатесі болмаса, HTTP күйі бойынша таңдалады:
@@ -175,6 +175,8 @@ if tungo.KindOf(err) == tungo.KindAuthentication {
 }
 ```
 
+SDK-ның барлық қателері `tungo.Error` интерфейсін жүзеге асырады және `errors.As` пен `errors.Is` арқылы жұмыс істейді: `*TimeoutError` `context.DeadlineExceeded` мәніне, ал тоқтатылған шақыру `context.Canceled` мәніне сәйкес келеді. `*APIError` сонымен қатар қате конвертінің типтелген `Detail` өрісін және SDK-ның бұл нұсқасы білмейтін қасиеттер жиналған `Extra` өрісін алып жүреді.
+
 ## Қайталаулар және күту уақыты
 
 Сұрау байланыс қателерінде, күту уақыты біткенде және 408, 429, 500, 502, 503, 504 күйлерінде 2 ретке дейін қайталанады (барлығы 3 әрекет), бірақ тек қайталау қауіпсіз болғанда: `GET`, `HEAD`, `PUT` және `DELETE` сұраулары, сондай-ақ келісімшарты `Idempotency-Key` тақырыбын жариялайтын операциялардың `POST` пен `PATCH` сұраулары. Олар үшін SDK кездейсоқ кілтті өзі жасап, оны барлық әрекетте қолданады; өз кілтіңізді беруге болады. Басқа операциялар кілтті, тіпті берілгенін де, жібермейді: API оны онда ескермейді.
@@ -191,14 +193,14 @@ client := base.WithOptions(
 )
 
 // ...or for one call.
-account, err := client.Platform.GetAccount(ctx,
+balance, err := client.Workspaces.GetBalance(ctx,
 	tungo.WithMaxRetries(0),
 	tungo.WithRequestTimeout(5*time.Second),
 )
 if err != nil {
 	return err
 }
-fmt.Println(account.BalanceTiyn)
+fmt.Println(balance.BalanceTiyn)
 
 // The deadline of the context bounds the call as a whole, retries and pauses included.
 ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -216,6 +218,8 @@ if err != nil {
 }
 fmt.Println(turn.Answer)
 ```
+
+`WithTimeout` пен `WithRequestTimeout` бір әрекетті шектейді. SDK ешқашан `http.Client.Timeout` орнатпайды, сондықтан өзіңіздің HTTP-клиентіңіз ағындар үшін жұмыс істей береді. `WithStreamIdleTimeout` ағындардың бос тұру уақытын өзгертеді; ол сіздің кодыңыздың оқиғаға жұмсаған уақытын емес, тек оқу әрекетінің серверді күткен уақытын санайды. Нөлдік немесе өткен уақытты көрсететін `Retry-After` SDK-ны бірден қайталауға мәжбүрлемейді: кәдімгі кідіріс қолданылады. Жауаптың сұраулар лимиті тақырыптары `WithResponseInto` және `Response.RateLimit` арқылы қолжетімді.
 
 ## Беттеп шығару
 
@@ -247,6 +251,8 @@ for proposal, err := range client.Proposals.ListAll(ctx, params) {
 	fmt.Println(proposal.ID)
 }
 ```
+
+API бір курсорды екі рет қайтарса, итератор `*tungo.PaginationError` қатесімен аяқталады, сондықтан цикл шексіз айнала алмайды.
 
 ## Ағынды беру
 
@@ -293,6 +299,28 @@ if err != nil {
 fmt.Println(turn.Text, turn.StopReason)
 ```
 
+`Events` ағынның әр оқиғасын белгіленген біріктіру (tagged union) ретінде береді; SDK-ның осы нұсқасы білмейтін оқиға түрі ағынды қатемен тоқтатпай, `*tungo.UnknownVariant` ретінде келеді, ал heart-beat сигналдары өткізіп жіберіледі. `RawEvents` декодталмаған SSE оқиғаларын береді. Айналымның өзі сәтсіз болса, `Accumulate` `*tungo.TurnError` қайтарады, ал ағын `done` оқиғасына жетпей аяқталса, `tungo.ErrStreamIncomplete` қатесіне сәйкес келетін `*tungo.DecodeError` қайтарады: бұл жағдайда осы уақытқа дейінгі мәтін дайын жауап емес. `text/event-stream` емес сәтті жауап та `*tungo.DecodeError` болады. Ерекше жағдай — API қайталанған `Idempotency-Key` үшін қайта беретін аяқталған чат айналымы (`Idempotent-Replayed: true` тақырыбы бар `application/json`): оның сақталған нәтижесі сол айналымның оқиғалары ретінде келеді де, `next` (бар болса, жалғастыру сұрақтары мен келесі әрекет) және `done` оқиғаларымен аяқталады. Басқа ағындар (`Chat.ListEvents`, `Batches.ListEvents`, `Feed.ListEvents`) дәл осылай жұмыс істейді; қосылым үзілгеннен кейін `LastEventID` ағынның қай жерде тоқтағанын көрсетеді. SDK өздігінен қайта қосылмайды.
+
+## Файлдарды жүктеп алу
+
+Файлмен жауап беретін операциялар (`chat.download_file` — ЖИ жинаған Excel, Word, PDF және CSV файлдары; `proposals.export` және `batches.export` — xlsx, csv немесе pdf) жүктелген файлды қайтарады: оның байттарын, `Content-Disposition` тақырыбындағы файл атауын (бар болса UTF-8 `filename*`, әйтпесе `filename`; сервер атау жібермесе, атау болмайды) және `Content-Type`. Файл толығымен жадқа оқылады. Қателер, қайталаулар және күту уақыты басқа сұраулардағыдай. Файл атауы — сервердің ұсынысы, қауіпсіз жол емес: одан тексерусіз жол құрастырмаңыз.
+
+```go
+format := tungo.GetCompanyProposalExportFormatPdf
+file, err := client.Proposals.Export(ctx, "P-000123", &tungo.ProposalsExportParams{Format: &format})
+if err != nil {
+	return err // the same *tungo.APIError as for any other call
+}
+name := "P-000123.pdf"
+if file.Filename != "" {
+	name = filepath.Base(file.Filename) // the server's suggestion, reduced to a bare name
+}
+if err := os.WriteFile(name, file.Content, 0o644); err != nil {
+	return err
+}
+fmt.Println(name, file.ContentType, len(file.Content), file.RequestID())
+```
+
 ## Вебхуктар
 
 Шығыс вебхуктарға Standard Webhooks (Svix) ерекшелігі бойынша қол қойылады. Тексеру функциясы сұраудың бастапқы денесі мен тақырыптарын (`webhook-*` немесе `svix-*`) қабылдайды, HMAC-SHA256 қолтаңбасын тұрақты уақытта, ал уақыт белгісін жүйелік сағаттан 300 с шегінде тексереді де, типтелген оқиғаны қайтарады. Кез келген мәселе вебхукты тексеру қатесі ретінде хабарланады. Құпия берілмесе, клиенттің вебхук құпиясы қолданылады.
@@ -336,6 +364,8 @@ if err != nil {
 fmt.Println(accepted.EventID, accepted.Duplicate)
 ```
 
+`tungo.VerifyWebhook(body, header, secret)` дәл осыны клиентсіз орындайды. `WithWebhookTolerance` бес минуттық терезені өзгертеді. `tungo.SignHook` және `tungo.VerifyHookSignature` хук деректеріне қолмен қол қояды және оларды тексереді.
+
 ## Ақша
 
 API сомаларды тиынмен (теңгенің 1/100 бөлігі) 64 биттік бүтін сандар түрінде береді. Ақша функциялары ондық жолдар мен дәл ондық мәндерді бөлшек сандардың қателігінсіз тиынға айналдырады, жартыны нөлден әрі қарай дөңгелектейді (`"1.005"` → `101`) және тиынды көрсету үшін пішімдейді (`4500000` → `45 000,00 ₸`). Жарамсыз енгізу типтелген қате тудырады.
@@ -355,27 +385,82 @@ half, _ := tungo.ToTiynFloat(0.285)        // floats are accepted and rounded ha
 fmt.Println(half)                          // 29
 ```
 
+`ToTiynRat` дәл `*big.Rat` мәнін түрлендіреді. `ToTiynFloat` бұрыннан бөлшек сан (float) болып тұрған мәндерге арналған; жолдарды қолданған дұрыс.
+
+## null, жоқ және нөлдік мәндер
+
+Go тіліндегі нөлдік мәндер «орнатылмаған» мен «нөлге орнатылған» дегенді ажырата алмайды, сондықтан модельдер мұны анық көрсетеді. Сұрау түрлерінде міндетті емес қасиет — көрсеткіш (`nil`: жіберілмейді), ал `null` қабылдайтын қасиет — `tungo.Nullable[T]` (нөлдік мән: жіберілмейді, `tungo.Null[T]()`: `null`, `tungo.Value(v)`: мәннің өзі, тіпті бос тізім немесе нөл болса да). Міндетті тізімдер мен map-тар ешқашан `null` ретінде жіберілмейді. Жауаптарда null бола алатын немесе міндетті емес қасиет — көрсеткіш.
+
+```go
+// Optional fields are pointers: nil is "not sent", tungo.Ptr(false) is false.
+// Fields the API accepts null for are tungo.Nullable: the zero value is "not sent".
+_, err := client.Webhooks.UpdateEndpoint(ctx, "ep_1", tungo.WebhookEndpointPatch{
+	Enabled:    tungo.Ptr(false),        // "enabled": false
+	EventTypes: tungo.Value([]string{}), // "event_types": []
+	Channels:   tungo.Null[[]string](),  // "channels": null
+	// Description is not set: the property is not sent and stays as it is.
+})
+if err != nil {
+	return err
+}
+
+// Responses keep what this SDK version does not know about.
+endpoint, err := client.Webhooks.GetEndpoint(ctx, "ep_1")
+if err != nil {
+	return err
+}
+fmt.Println(endpoint.ExtraFields()) // properties added to the API later, as raw JSON
+```
+
+Әр модель өзі декодталған JSON-ды сақтайды: `RawJSON()` соны, ал `ExtraFields()` SDK-ның бұл нұсқасында өрісі жоқ қасиеттерді қайтарады. Enum түрлері — жолдық түрлер, сондықтан API-ге кейін қосылған мән қатесіз декодталады. Дискриминаторлы біріктіру — өзінің вариант түрлерінің бірін ұстайтын `Value` өрісі бар құрылым (type switch қолданыңыз); қарапайым JSON пішіндерінің біріктіруі — әр пішінге бір көрсеткіш өрісі бар құрылым.
+
+## Ұзақ операцияларды күту
+
+```go
+// Start a scenario and wait until its run reaches a final state.
+run, err := client.RunScenarioAndWait(ctx, "scn_1", nil, &tungo.WaitOptions{Timeout: 10 * time.Minute})
+if err != nil {
+	return err // *tungo.TimeoutError when the run is still going after ten minutes
+}
+fmt.Println(run.State)
+
+// Upload a bank statement and wait for the batch that processes it.
+statement := []byte("1CClientBankExchange\n...")
+job, err := client.UploadBankStatement(ctx, "statement.txt", statement, true)
+if err != nil {
+	return err
+}
+if job, err = client.WaitForBatch(ctx, job.ID, nil); err != nil {
+	return err
+}
+fmt.Println(job.Running) // false
+```
+
+Көмекші әдістер 1 с-тан 5 с-қа дейін өсетін үзіліспен мезгіл-мезгіл сұрау жіберіп тұрады, келісімшарттағы кез келген соңғы күйде тоқтайды және контекстті ескереді. Уақытша себеппен (байланыс қатесі, күту уақытының бітуі, 408, 429, 5xx) сәтсіз болған сұрау мерзім біткенге дейін қайталанады; кез келген басқа қате күтуді бірден аяқтайды.
+
+## Мысалдар
+
+Толық бағдарламалар [`examples/`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples) ішінде: [`quickstart`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/quickstart/main.go), [`streaming`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/streaming/main.go) және [`webhook-server`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/webhook-server/main.go). Бұл README-дегі код — `example_test.go` файлы: `go test` оны компиляциялайды және жергілікті mock серверге қарсы іске қосады.
+
 ## API анықтамалығы
 
-Tungo платформасы API-інің келісімшартынан жасалған: **ресурстар — 15, әдістер — 100, вебхук оқиғаларының түрлері — 22**.
+Tungo платформасы API-інің келісімшартынан жасалған: **ресурстар — 13, әдістер — 83, вебхук оқиғаларының түрлері — 20**.
 
 | Ресурс | Сипаттама | Әдістер |
 | --- | --- | --- |
-| `client.Workspaces` | API кілтіне қолжетімді ұйымдар (workspace) | `List` |
+| `client.Workspaces` | API кілтіне қолжетімді ұйымдар (workspace) және платформа балансының қалдығы | `List` · `GetBalance` |
 | `client.Companies` | Ұйымның компаниялары және олардың карточкалары | `List` · `Get` |
-| `client.Platform` | Платформа балансы, қозғалыстар кітабы, шығын есептері, лимиттер, аудит және модельдер тарифтері | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
-| `client.APIKeys` | Ағымдағы API кілті туралы мәлімет және оның шығын статистикасы | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
-| `client.Webhooks` | Ұйымның шығыс вебхуктары (Svix): мекенжайлар, оқиғалар каталогы, жеткізулер және қолтаңбаны тексеру | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | ЖИ-бухгалтермен диалогтар: сұрақтар, ағынды чат (SSE), токендерді санау және тарих | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` · `TranslateThinking` |
-| `client.Proposals` | ЖИ-бухгалтер ұсынған құжаттар: қарау, 1С-ке жазуды мақұлдау және қабылдамау | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
+| `client.APIKeys` | Ағымдағы API кілті: құқықтары, мерзімі, айдағы шығыны және шақырулар неге өтпейтіні | `GetCurrent` |
+| `client.Webhooks` | Ұйымның шығыс вебхуктары (Svix): мекенжайлар, оқиғалар каталогы, жеткізулер және қолтаңбаны тексеру | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` |
+| `client.Chat` | ЖИ-бухгалтермен диалогтар: сұрақтар, ағынды чат (SSE), токендерді санау және тарих | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `DownloadFile` · `Stop` |
+| `client.Proposals` | ЖИ-бухгалтер ұсынған құжаттар: қарау, 1С-ке жазуды мақұлдау және қабылдамау | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Export` · `Reject` · `RequestApproval` |
 | `client.Feed` | Компанияның оқиғалар мен ұсыныстар таспасы (беттер және тікелей SSE ағыны) | `Get / GetAll` · `ListEvents` |
-| `client.Batches` | Банк үзінді көшірмелерін, кіріс ЭШФ-ларды және DirectBank-ті өңдеу бумалары | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
+| `client.Batches` | Банк үзінді көшірмелерін, кіріс ЭШФ-ларды және DirectBank-ті өңдеу бумалары | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Export` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
 | `client.ESF` | Кіріс және шығыс электрондық шот-фактуралар (ЭШФ АЖ) | `GetIncoming / GetIncomingAll` · `GetOutgoing / GetOutgoingAll` |
 | `client.Forms` | Салық нысандары (СЕН 100.00 және басқалары): құрастыру, ИСНА тексеруі және деректердегі алшақтықтар | `List` · `Build` · `ListDataGaps` · `GetIsna` · `ListNotes` |
 | `client.OneC` | Компанияның 1С базасына қосылу күйі | `GetStatus` |
-| `client.Automations` | Компания автоматтандырулары: кіріс хуктар, сценарийлер, қадамдар тізбегі, іске қосулар және ЖИ дербестігінің деңгейі | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` · `PutAutonomy` |
+| `client.Automations` | Компания автоматтандырулары: кіріс хуктар, сценарийлер, қадамдар тізбегі, іске қосулар және ЖИ дербестігінің деңгейі | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` |
 | `client.Verification` | Tungo құжаттарының электрондық қолтаңбасын ашық тексеру: код, файл, QR блогы бойынша және қолтаңба кілттері (API кілтісіз) | `ListKeys` · `VerifyQr` · `Get` · `Check` |
-| `client.Releases` | Ашық жүктеулер тізімі: 1С кеңейтімі және Tungo Connector (API кілтісіз) | `List` |
 
 ## Басқа SDK-лар
 
@@ -385,7 +470,7 @@ Tungo платформасы API-інің келісімшартынан жас�
 | --- | --- | --- |
 | TypeScript | [tungo-sdk-typescript](https://github.com/TungoAI/tungo-sdk-typescript) | `@tungoai/sdk` |
 | Python | [tungo-sdk-python](https://github.com/TungoAI/tungo-sdk-python) | `tungoai` |
-| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go` |
+| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go/v2` |
 | Rust | [tungo-sdk-rust](https://github.com/TungoAI/tungo-sdk-rust) | `tungo-sdk` |
 | PHP | [tungo-sdk-php](https://github.com/TungoAI/tungo-sdk-php) | `tungo/sdk` |
 | Java | [tungo-sdk-java](https://github.com/TungoAI/tungo-sdk-java) | `kz.tungo:tungo-sdk` |
@@ -396,9 +481,9 @@ Tungo платформасы API-інің келісімшартынан жас�
 
 ## Нұсқалар және қолдау
 
-Кітапхана [семантикалық нұсқалауды](https://semver.org/) ұстанады. Аралық және түзету шығарылымдары үйлесімді: API толықтыру арқылы өседі, ал алынатын өріс не әдіс алдымен ескірген деп белгіленіп, кемінде алты ай сақталады. Үйлесімсіз өзгерістер тек жаңа жоғарғы нұсқада болады және ауысу нұсқауларымен бірге [өзгерістер тарихында](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) келтіріледі. Бұл README 1.0.0 нұсқасын сипаттайды.
+Кітапхана [семантикалық нұсқалауды](https://semver.org/) ұстанады. Аралық және түзету шығарылымдары үйлесімді: API толықтыру арқылы өседі, ал алынатын өріс не әдіс алдымен ескірген деп белгіленіп, кемінде алты ай сақталады. Үйлесімсіз өзгерістер тек жаңа жоғарғы нұсқада болады және ауысу нұсқауларымен бірге [өзгерістер тарихында](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) келтіріледі. Бұл README 2.0.0 нұсқасын сипаттайды.
 
-Код генератормен жасалады: мәселелер мен ұсыныстар туралы жасалған файлдарға түзету жібермей, [өтініштерге](https://github.com/TungoAI/tungo-sdk-go/issues) жазыңыз. Осалдық туралы [қауіпсіздік саясаты](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md) бойынша хабарлаңыз.
+Сұрақтар мен мәселелер бойынша [Tungo жеке кабинетіндегі](https://app.tungo.kz) қолдау қызметіне жүгініңіз. Код API келісімшартынан генератормен жасалады, ал жасалған файлға енгізілген түзету келесі генерация кезінде өшіріледі, сондықтан pull request жібермей, қажетті өзгерісті өтінішіңізде сипаттаңыз. Осалдық туралы [қауіпсіздік саясаты](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md) бойынша хабарлаңыз.
 
 ## Лицензия
 

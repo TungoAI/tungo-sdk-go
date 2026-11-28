@@ -4068,5 +4068,140 @@
         "decode_error": true
       }
     }
+  ],
+  "content_disposition": [
+    {
+      "name": "absent",
+      "header": null,
+      "expect": {
+        "filename": null
+      }
+    },
+    {
+      "name": "quoted filename",
+      "header": "attachment; filename=\"tungo-P-000123.xlsx\"",
+      "expect": {
+        "filename": "tungo-P-000123.xlsx"
+      }
+    },
+    {
+      "name": "token filename",
+      "header": "attachment; filename=tungo-P-000123.csv",
+      "expect": {
+        "filename": "tungo-P-000123.csv"
+      }
+    },
+    {
+      "name": "RFC 5987 Cyrillic name wins over the ASCII fallback",
+      "header": "attachment; filename=\"Otchet za noyabr.xlsx\"; filename*=UTF-8''%D0%9E%D1%82%D1%87%D1%91%D1%82%20%D0%B7%D0%B0%20%D0%BD%D0%BE%D1%8F%D0%B1%D1%80%D1%8C.xlsx",
+      "expect": {
+        "filename": "Отчёт за ноябрь.xlsx"
+      }
+    },
+    {
+      "name": "RFC 5987 before the fallback",
+      "header": "attachment; filename*=UTF-8''%D0%9E%D1%82%D1%87%D1%91%D1%82%20%D0%B7%D0%B0%20%D0%BD%D0%BE%D1%8F%D0%B1%D1%80%D1%8C.xlsx; filename=\"Otchet.xlsx\"",
+      "expect": {
+        "filename": "Отчёт за ноябрь.xlsx"
+      }
+    },
+    {
+      "name": "RFC 5987 only, lower-case charset",
+      "header": "attachment; filename*=utf-8''%D0%90%D0%BA%D1%82%20%D1%81%D0%B2%D0%B5%D1%80%D0%BA%D0%B8.pdf",
+      "expect": {
+        "filename": "Акт сверки.pdf"
+      }
+    },
+    {
+      "name": "RFC 5987 with a language tag",
+      "header": "attachment; filename*=UTF-8'ru'%D0%A1%D1%87%D1%91%D1%82.docx",
+      "expect": {
+        "filename": "Счёт.docx"
+      }
+    },
+    {
+      "name": "Kazakh letters",
+      "header": "attachment; filename*=UTF-8''%D0%95%D1%81%D0%B5%D0%BF%20%D2%9B%D0%B0%D0%B7%D0%B0%D0%BD.xlsx",
+      "expect": {
+        "filename": "Есеп қазан.xlsx"
+      }
+    },
+    {
+      "name": "parameter names are case-insensitive",
+      "header": "attachment; FILENAME=\"Report.PDF\"",
+      "expect": {
+        "filename": "Report.PDF"
+      }
+    },
+    {
+      "name": "quoted value with an escaped quote and a semicolon",
+      "header": "attachment; filename=\"a\\\"b;c.csv\"",
+      "expect": {
+        "filename": "a\"b;c.csv"
+      }
+    },
+    {
+      "name": "spaces around the equals sign and separators",
+      "header": "attachment ;  filename = \"spaced.xlsx\" ",
+      "expect": {
+        "filename": "spaced.xlsx"
+      }
+    },
+    {
+      "name": "inline without a name",
+      "header": "inline",
+      "expect": {
+        "filename": null
+      }
+    },
+    {
+      "name": "attachment without a name",
+      "header": "attachment",
+      "expect": {
+        "filename": null
+      }
+    },
+    {
+      "name": "empty name",
+      "header": "attachment; filename=\"\"",
+      "expect": {
+        "filename": null
+      }
+    },
+    {
+      "name": "RFC 5987 with bad percent-encoding falls back to filename",
+      "header": "attachment; filename*=UTF-8''%D0%Zz.xlsx; filename=\"fallback.xlsx\"",
+      "expect": {
+        "filename": "fallback.xlsx"
+      }
+    },
+    {
+      "name": "RFC 5987 in an unsupported charset falls back to filename",
+      "header": "attachment; filename*=ISO-8859-1''na%EFve.txt; filename=\"naive.txt\"",
+      "expect": {
+        "filename": "naive.txt"
+      }
+    },
+    {
+      "name": "RFC 5987 that is not UTF-8 falls back to filename",
+      "header": "attachment; filename*=UTF-8''%FF%FE.bin; filename=\"file.bin\"",
+      "expect": {
+        "filename": "file.bin"
+      }
+    },
+    {
+      "name": "the name is returned as sent, path included",
+      "header": "attachment; filename=\"../etc/passwd\"",
+      "expect": {
+        "filename": "../etc/passwd"
+      }
+    },
+    {
+      "name": "other parameters are ignored",
+      "header": "attachment; size=1024; filename=\"data.csv\"; creation-date=\"Wed, 12 Feb 1997 16:29:51 -0500\"",
+      "expect": {
+        "filename": "data.csv"
+      }
+    }
   ]
 }

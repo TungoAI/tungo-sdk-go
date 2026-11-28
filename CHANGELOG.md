@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-28
+
+The public surface is now exactly what an integration's code needs, generated from the platform contract of the backend in production. 1.0.0 shipped cabinet features by mistake: the organisation's money reports and audit log, screen helpers of the cabinet chat and the download list. They are removed here, and the API no longer serves them to an API key at all (they stay in the Tungo cabinet). This is an exception to the rule of at most one major release per six months, decided by the product owner: 1.0.0 had no users (no request was ever made with an API key). From 2.0.0 on, minor and patch releases are again backwards compatible and only add.
+
+### Breaking
+
+- Removed resource `platform` and all its methods: `platform.get_account`, `platform.get_ledger`, `platform.get_usage`, `platform.list_requests`, `platform.get_audit`, `platform.list_limits` and `platform.list_usage_rates`, with their models (`PlatformAccount`, `PlatformAutoReload`, `PlatformLedgerEntry`, `PlatformUsage`, `PlatformRequest`, `PlatformLimits`, `AuditEntry`, `UsageRate`, `UsageRateLongContext`). The organisation's balance history, spend, request log, limits and audit log are cabinet screens; the API answers an API key on these addresses with 403 `permission_error`.
+- Removed `api_keys.get_current_usage` (`GET /v1/api-key/usage`, the address is gone) and `api_keys.get_usage` (`ApiKeyUsage`).
+- Removed `webhooks.get_usage` (`WebhookUsage`): the monthly webhook counter is billing of the cabinet.
+- Removed cabinet helpers of the chat: `chat.update` (rename), `chat.list_suggestions`, `chat.list_mentions`, `chat.get_rating_options`, `chat.rate_message`, `chat.delete_message_rating`, `chat.rate`, `chat.dismiss_rating` and `chat.translate_thinking`, with their models (`ChatDialogPatch`, `ChatDialogRenamed`, `ChatSuggestions`, `ChatSuggestionGroup`, `ChatSuggestion`, `ChatMentionSearch`, `ChatMentionItem`, `ChatMentionUnavailable`, `ChatRatingOptions`, `ChatMessageRatingBody`, `ChatMessageRated`, `ChatDialogRatingBody`, `ChatDialogRated`, `ChatRatingDismissed`, `ChatThinkingTranslation`).
+- Removed `automations.put_autonomy` (`CompanyAutonomyInput`): the AI trust levels of a company are changed by people in the cabinet; `automations.get_autonomy` still reads them, and the emergency stop for code is `automations.put_state`.
+- Removed resource `releases` (`releases.list`, `Downloads` and its models): the download list is for the website and the cabinet.
+- Removed webhook events `payment.succeeded` and `payment.failed` (`WebhookEventPaymentSucceeded`, `WebhookEventPaymentFailed`): payments for Tungo itself are cabinet billing. The `WebhookEvent` union no longer has these variants.
+- An API key with `proposals.approve` must have both write limits (per document and per day); keys without them are no longer issued (400 `write_limits_required`) and existing ones got default limits. This is server behaviour, not an SDK change: `proposals.approve` and `proposals.approve_batch` answer 403 `key_write_limit` above the key's limits, as before.
+
+### Migration
+
+- The module path is now `github.com/TungoAI/tungo-sdk-go/v2` (Go modules require the major version in the path from v2 on): `go get github.com/TungoAI/tungo-sdk-go/v2@latest` and change the imports to `tungo "github.com/TungoAI/tungo-sdk-go/v2"`.
+- `client.Platform.GetAccount(ctx, ...)` → `client.Workspaces.GetBalance(ctx, ...)` for the balance, `BlockedReason` of `client.APIKeys.GetCurrent(ctx)` for why calls fail; `client.APIKeys.GetCurrentUsage(ctx, ...)` → `Month` of `client.APIKeys.GetCurrent(ctx)`.
+- Why calls with the key would fail (balance, spending cap, platform switched off, key disabled): read `blocked_reason` of `api_keys.get_current`; null means all is well. The key's spend this month and its cap are in `month` of the same answer.
+- The platform balance: `workspaces.get_balance` (new) returns the remaining balance (`balance_tiyn`) and whether the platform is on (`enabled`). Topping up, history and reports are in the cabinet.
+- The price of a question: `chat.count_tokens` before the call, `usage.cost_tiyn` of the answer (and `cost_tiyn` of the `done` stream event) after it.
+- Rate limits: the `x-ratelimit-*` headers of every response, exposed by the SDK's response metadata; file and body size limits are in the documentation and the cabinet.
+- Low balance and caps: subscribe to the webhooks `platform.balance_low`, `platform.balance_exhausted`, `platform.cap_threshold_reached` and `api_key.cap_reached`.
+- Removed chat helpers, `put_autonomy` and `releases`: there is no replacement in the SDK; these are features of the Tungo cabinet.
+- Exhaustive matches over webhook events: remove the `payment.succeeded` and `payment.failed` branches.
+
+### Added
+
+- `workspaces.get_balance` (`GET /v1/workspaces/{ws}/platform/balance`, `PlatformBalance`): the remaining platform balance and whether the platform is on. Readable with a key whose creator is still an owner or admin of the organisation.
+- File downloads: `chat.download_file` (`GET /v1/companies/{co}/chat/{id}/files/{file}`, the Excel, Word, PDF or CSV files the AI built, listed by `chat.list_files`), `proposals.export` and `batches.export` (`GET …/proposals/{id}/export`, `GET …/batch/{id}/export`, `format` xlsx, csv or pdf) return a `DownloadedFile`: the bytes, the file name from `Content-Disposition` (`filename*` in UTF-8 first, then `filename`; null when absent), the content type and the request id. Errors are the usual typed API errors, and retries and timeouts work as for every GET.
+
+### Known limitations
+
+- The redirects `GET /v1/public/downloads/connector` and `GET /v1/public/downloads/onec-extension` are not in the SDKs: they are links for a browser.
+- A chat turn replayed by `Idempotency-Key` as a stream does not rebuild `file` events; the files of the turn are in `ChatTurnResult.files` of the non-streaming answer and in `chat.list_files`.
+
 ## [1.0.0] - 2026-11-27
 
 First stable release, generated from the platform contract of backend 230d6b82 (the API in production). From 1.0.0 on, minor and patch releases are backwards compatible: the API and the SDKs grow only by additions, a field or method that is to go away is first marked deprecated and kept for at least six months, and breaking changes come only in a new major version. The breaking changes against 0.3 are listed below, each with what to change; most code that only calls methods and reads results needs no change.
@@ -126,7 +163,8 @@ First production-ready release. It contains breaking changes compared with 0.1.0
 
 Initial preview. Not suitable for production use.
 
-[Unreleased]: https://github.com/TungoAI/tungo-sdk-go/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/TungoAI/tungo-sdk-go/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/TungoAI/tungo-sdk-go/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/TungoAI/tungo-sdk-go/compare/v0.3.0...v1.0.0
 [0.3.0]: https://github.com/TungoAI/tungo-sdk-go/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/TungoAI/tungo-sdk-go/compare/v0.1.0...v0.2.0

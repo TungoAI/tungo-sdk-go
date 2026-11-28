@@ -3,22 +3,22 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo02.svg" />
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" />
-  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/.github/main/assets/logo03.svg" width="240" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" />
+  <img alt="Tungo AI" src="https://raw.githubusercontent.com/TungoAI/tungo-sdk-go/main/.github/logo.svg" width="240" />
 </picture>
 
 # Tungo SDK for Go
 
 **The official Go library for the Tungo Platform API**
 
-[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go)
+[![pkg.go.dev](https://pkg.go.dev/badge/github.com/TungoAI/tungo-sdk-go/v2.svg)](https://pkg.go.dev/github.com/TungoAI/tungo-sdk-go/v2)
 [![CI](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml/badge.svg)](https://github.com/TungoAI/tungo-sdk-go/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/TungoAI/tungo-sdk-go/blob/main/LICENSE)
 
 **English** · [Русский](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.ru.md) · [Қазақша](https://github.com/TungoAI/tungo-sdk-go/blob/main/README.kk.md)
 
-[tungo.kz](https://tungo.kz) · [Quick start](#quick-start) · [API reference](#api-reference) · [Changelog](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Issues](https://github.com/TungoAI/tungo-sdk-go/issues)
+[tungo.kz](https://tungo.kz) · [Quick start](#quick-start) · [API reference](#api-reference) · [Changelog](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md) · [Support](https://app.tungo.kz)
 
 </div>
 
@@ -35,11 +35,11 @@ Go 1.24 or newer. The module has no dependencies outside the standard library. C
 ## Installation
 
 ```sh
-go get github.com/TungoAI/tungo-sdk-go@latest
+go get github.com/TungoAI/tungo-sdk-go/v2@latest
 ```
 
 ```go
-import tungo "github.com/TungoAI/tungo-sdk-go"
+import tungo "github.com/TungoAI/tungo-sdk-go/v2"
 ```
 
 ## Quick start
@@ -55,7 +55,7 @@ import (
 	"fmt"
 	"log"
 
-	tungo "github.com/TungoAI/tungo-sdk-go"
+	tungo "github.com/TungoAI/tungo-sdk-go/v2"
 )
 
 func main() {
@@ -193,14 +193,14 @@ client := base.WithOptions(
 )
 
 // ...or for one call.
-account, err := client.Platform.GetAccount(ctx,
+balance, err := client.Workspaces.GetBalance(ctx,
 	tungo.WithMaxRetries(0),
 	tungo.WithRequestTimeout(5*time.Second),
 )
 if err != nil {
 	return err
 }
-fmt.Println(account.BalanceTiyn)
+fmt.Println(balance.BalanceTiyn)
 
 // The deadline of the context bounds the call as a whole, retries and pauses included.
 ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -300,6 +300,26 @@ fmt.Println(turn.Text, turn.StopReason)
 ```
 
 `Events` yields every event of the stream as a tagged union; an event type this SDK version does not know arrives as `*tungo.UnknownVariant` instead of failing the stream, and heart-beats are skipped. `RawEvents` yields the undecoded SSE events. `Accumulate` returns a `*tungo.TurnError` when the turn itself fails, and a `*tungo.DecodeError` that matches `tungo.ErrStreamIncomplete` when the stream ends before its `done` event: the text so far is then not a finished answer. A successful response that is not `text/event-stream` is a `*tungo.DecodeError` too. The exception is a finished chat turn that the API replays for a repeated `Idempotency-Key` (`application/json` with `Idempotent-Replayed: true`): its stored result arrives as the events of that turn, ending with `next` (follow-ups and the next action, when it has them) and `done`. The other streams (`Chat.ListEvents`, `Batches.ListEvents`, `Feed.ListEvents`) work the same way; after a broken connection, `LastEventID` tells where the stream stopped. The SDK does not reconnect on its own.
+
+## File downloads
+
+The operations that answer with a file (`chat.download_file` for the Excel, Word, PDF and CSV files the AI built, `proposals.export` and `batches.export` as xlsx, csv or pdf) return the downloaded file: its bytes, the file name from the `Content-Disposition` header (the UTF-8 `filename*` when present, otherwise `filename`; none when the server sent no name) and the `Content-Type`. The whole file is read into memory. Errors, retries and timeouts are the same as for every other request. The file name is the server's suggestion, not a safe path: do not use it to build one unchecked.
+
+```go
+format := tungo.GetCompanyProposalExportFormatPdf
+file, err := client.Proposals.Export(ctx, "P-000123", &tungo.ProposalsExportParams{Format: &format})
+if err != nil {
+	return err // the same *tungo.APIError as for any other call
+}
+name := "P-000123.pdf"
+if file.Filename != "" {
+	name = filepath.Base(file.Filename) // the server's suggestion, reduced to a bare name
+}
+if err := os.WriteFile(name, file.Content, 0o644); err != nil {
+	return err
+}
+fmt.Println(name, file.ContentType, len(file.Content), file.RequestID())
+```
 
 ## Webhooks
 
@@ -420,29 +440,27 @@ The helpers poll with a pause that grows from 1 s to 5 s, stop on every final st
 
 ## Examples
 
-Complete programs live in [`examples/`](examples): [`quickstart`](examples/quickstart/main.go), [`streaming`](examples/streaming/main.go) and [`webhook-server`](examples/webhook-server/main.go). The code of this README is `example_test.go`: `go test` compiles it and runs it against a local mock server.
+Complete programs live in [`examples/`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples): [`quickstart`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/quickstart/main.go), [`streaming`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/streaming/main.go) and [`webhook-server`](https://github.com/TungoAI/tungo-sdk-go/blob/main/examples/webhook-server/main.go). The code of this README is `example_test.go`: `go test` compiles it and runs it against a local mock server.
 
 ## API reference
 
-Generated from the Tungo Platform API contract: **15 resources, 100 methods, 22 webhook event types**.
+Generated from the Tungo Platform API contract: **13 resources, 83 methods, 20 webhook event types**.
 
 | Resource | Description | Methods |
 | --- | --- | --- |
-| `client.Workspaces` | Organisations (workspaces) the API key can access | `List` |
+| `client.Workspaces` | Organisations (workspaces) the API key can access, and the platform balance | `List` · `GetBalance` |
 | `client.Companies` | Companies of an organisation and their profiles | `List` · `Get` |
-| `client.Platform` | Platform balance, ledger, usage reports, limits, audit log and model rates | `ListUsageRates` · `GetAccount` · `GetAudit / GetAuditAll` · `GetLedger / GetLedgerAll` · `ListLimits` · `ListRequests / ListRequestsAll` · `GetUsage` |
-| `client.APIKeys` | The current API key and its usage statistics | `GetCurrent` · `GetCurrentUsage` · `GetUsage` |
-| `client.Webhooks` | Outgoing webhooks of an organisation (Svix): endpoints, event catalogue, deliveries and signature check | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` · `GetUsage` |
-| `client.Chat` | Conversations with the AI accountant: questions, streaming chat (SSE), token counting and history | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `ListMentions` · `GetRatingOptions` · `ListSuggestions` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Update` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `RateMessage` · `DeleteMessageRating` · `Rate` · `DismissRating` · `Stop` · `TranslateThinking` |
-| `client.Proposals` | Documents proposed by the AI accountant: review, approval for posting to 1C, and rejection | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Reject` · `RequestApproval` |
+| `client.APIKeys` | The current API key: permissions, expiry, spend this month and why calls would be refused | `GetCurrent` |
+| `client.Webhooks` | Outgoing webhooks of an organisation (Svix): endpoints, event catalogue, deliveries and signature check | `ListEndpoints / ListEndpointsAll` · `CreateEndpoint` · `GetEndpoint` · `UpdateEndpoint` · `DeleteEndpoint` · `ListEndpointAttempts / ListEndpointAttemptsAll` · `RotateEndpointSecret` · `TestEndpoint` · `ListEventTypes` · `ListMessages / ListMessagesAll` · `ListMessageAttempts / ListMessageAttemptsAll` · `ResendMessage` |
+| `client.Chat` | Conversations with the AI accountant: questions, streaming chat (SSE), token counting and history | `List / ListAll` · `Create / CreateStream` · `CountTokens` · `ListFiles / ListFilesAll` · `CreateUpload` · `DeleteUpload` · `PutUploadPart` · `Get` · `Delete` · `Answer / AnswerStream` · `ListEvents` · `DownloadFile` · `Stop` |
+| `client.Proposals` | Documents proposed by the AI accountant: review, approval for posting to 1C, and rejection | `List / ListAll` · `ApproveBatch` · `Get` · `Approve` · `Export` · `Reject` · `RequestApproval` |
 | `client.Feed` | The company's feed of events and proposals (pages and a live SSE stream) | `Get / GetAll` · `ListEvents` |
-| `client.Batches` | Processing batches for bank statements, incoming e-invoices and DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
+| `client.Batches` | Processing batches for bank statements, incoming e-invoices and DirectBank | `List / ListAll` · `CreateBankStatement` · `CreateESFPurchases` · `Get` · `ListEvents` · `Export` · `Stop` · `GetSummary` · `ListStatements / ListStatementsAll` · `PollDirectbank` |
 | `client.ESF` | Incoming and outgoing electronic invoices (the ESF system) | `GetIncoming / GetIncomingAll` · `GetOutgoing / GetOutgoingAll` |
 | `client.Forms` | Tax forms (FNO 100.00 and others): building, ISNA checks and data gaps | `List` · `Build` · `ListDataGaps` · `GetIsna` · `ListNotes` |
 | `client.OneC` | Status of the company's connection to its 1C database | `GetStatus` |
-| `client.Automations` | Company automations: incoming hooks, scenarios, step chains, runs and the AI autonomy level | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` · `PutAutonomy` |
+| `client.Automations` | Company automations: incoming hooks, scenarios, step chains, runs and the AI autonomy level | `PostHook` · `ListHooks` · `CreateHook` · `GetHook` · `UpdateHook` · `DeleteHook` · `RotateHook` · `TestHook` · `ListRuns / ListRunsAll` · `GetRun` · `CancelRun` · `RetryRun` · `ListScenarios` · `CreateScenario` · `GetScenario` · `PutScenario` · `UpdateScenario` · `DeleteScenario` · `RunScenario` · `GetState` · `PutState` · `GetAutonomy` |
 | `client.Verification` | Public verification of the electronic signature of Tungo documents: by code, by file, by QR block, and the signing keys (no API key needed) | `ListKeys` · `VerifyQr` · `Get` · `Check` |
-| `client.Releases` | Public list of downloads: the 1C extension and Tungo Connector (no API key needed) | `List` |
 
 ## Other SDKs
 
@@ -452,7 +470,7 @@ The same API is available in ten languages. All SDKs are generated from one cont
 | --- | --- | --- |
 | TypeScript | [tungo-sdk-typescript](https://github.com/TungoAI/tungo-sdk-typescript) | `@tungoai/sdk` |
 | Python | [tungo-sdk-python](https://github.com/TungoAI/tungo-sdk-python) | `tungoai` |
-| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go` |
+| **Go** | [tungo-sdk-go](https://github.com/TungoAI/tungo-sdk-go) | `github.com/TungoAI/tungo-sdk-go/v2` |
 | Rust | [tungo-sdk-rust](https://github.com/TungoAI/tungo-sdk-rust) | `tungo-sdk` |
 | PHP | [tungo-sdk-php](https://github.com/TungoAI/tungo-sdk-php) | `tungo/sdk` |
 | Java | [tungo-sdk-java](https://github.com/TungoAI/tungo-sdk-java) | `kz.tungo:tungo-sdk` |
@@ -463,9 +481,9 @@ The same API is available in ten languages. All SDKs are generated from one cont
 
 ## Versioning and support
 
-This library follows [Semantic Versioning](https://semver.org/). Minor and patch releases are backwards compatible: the API grows by additions, and a field or method that is to go away is first marked deprecated and kept for at least six months. Breaking changes come only in a new major version and are listed, with migration notes, in the [changelog](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). This README describes version 1.0.0.
+This library follows [Semantic Versioning](https://semver.org/). Minor and patch releases are backwards compatible: the API grows by additions, and a field or method that is to go away is first marked deprecated and kept for at least six months. Breaking changes come only in a new major version and are listed, with migration notes, in the [changelog](https://github.com/TungoAI/tungo-sdk-go/blob/main/CHANGELOG.md). This README describes version 2.0.0.
 
-The code is generated: please report problems and ideas in the [issue tracker](https://github.com/TungoAI/tungo-sdk-go/issues) rather than opening pull requests against generated files. To report a vulnerability, follow the [security policy](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md).
+Questions and problems go to support in the [Tungo personal cabinet](https://app.tungo.kz). The code is generated from the API contract and a change to a generated file is overwritten by the next generation, so describe the change you need in your request rather than opening a pull request. To report a vulnerability, follow the [security policy](https://github.com/TungoAI/tungo-sdk-go/blob/main/SECURITY.md).
 
 ## License
 

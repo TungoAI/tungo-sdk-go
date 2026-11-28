@@ -90,6 +90,7 @@ type requestSpec struct {
 	defaultKey  string
 	longRunning bool // non-streaming chat turn: DefaultChatTimeout
 	stream      bool // server-sent events: no total timeout
+	download    bool // the answer is a file: Accept */*, the body is returned as it is
 }
 
 func (s *requestSpec) setHeader(name string, value *string) {
@@ -415,9 +416,12 @@ func (c *Client) execute(ctx context.Context, spec *requestSpec, opts []Option) 
 		for name, values := range spec.header {
 			req.Header[name] = append([]string(nil), values...)
 		}
-		if spec.stream {
+		switch {
+		case spec.stream:
 			req.Header.Set("Accept", "text/event-stream")
-		} else {
+		case spec.download:
+			req.Header.Set("Accept", "*/*")
+		default:
 			req.Header.Set("Accept", "application/json")
 		}
 		req.Header.Set("User-Agent", "tungo-sdk-go/"+Version)

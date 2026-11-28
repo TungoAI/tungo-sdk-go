@@ -10,13 +10,11 @@ package tungo
 type Client struct {
 	cfg config
 
-	// Workspaces: Организации (workspace), доступные ключу API
+	// Workspaces: Организации (workspace), доступные ключу API, и остаток баланса платформы
 	Workspaces *WorkspacesService
 	// Companies: Компании организации и их карточки
 	Companies *CompaniesService
-	// Platform: Баланс платформы, книга движений, отчёты о расходе, лимиты, аудит и тарифы моделей
-	Platform *PlatformService
-	// APIKeys: Сведения о текущем ключе API и статистика его расхода
+	// APIKeys: Сведения о текущем ключе API: права, срок, траты месяца и почему вызовы не пройдут
 	APIKeys *APIKeysService
 	// Webhooks: Исходящие вебхуки организации (Svix): адреса, каталог событий, доставки и проверка подписи
 	Webhooks *WebhooksService
@@ -38,8 +36,6 @@ type Client struct {
 	Automations *AutomationsService
 	// Verification: Публичная проверка электронной подписи документов Tungo: по коду, по файлу, по блоку QR и ключи подписи (без ключа API)
 	Verification *VerificationService
-	// Releases: Публичный список загрузок: расширение 1С и Tungo Connector (без ключа API)
-	Releases *ReleasesService
 }
 
 // NewClient creates a client. Options that are not given fall back to the environment variables
@@ -61,7 +57,6 @@ func newClient(cfg config) *Client {
 	c := &Client{cfg: cfg}
 	c.Workspaces = &WorkspacesService{client: c}
 	c.Companies = &CompaniesService{client: c}
-	c.Platform = &PlatformService{client: c}
 	c.APIKeys = &APIKeysService{client: c}
 	c.Webhooks = &WebhooksService{client: c}
 	c.Chat = &ChatService{client: c}
@@ -73,6 +68,5 @@ func newClient(cfg config) *Client {
 	c.OneC = &OneCService{client: c}
 	c.Automations = &AutomationsService{client: c}
 	c.Verification = &VerificationService{client: c}
-	c.Releases = &ReleasesService{client: c}
 	return c
 }
